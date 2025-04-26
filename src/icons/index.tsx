@@ -51,10 +51,18 @@ import HorizontaLDots from "./horizontal-dots.svg";
 import ChatIcon from "./chat.svg";
 import MoreDotIcon from "./more-dot.svg";
 import BellIcon from "./bell.svg";
+import MapPinIcon from "./angle-up.svg";
+import PhoneIcon from "./bell.svg";
+import TrashIcon from "./trash.svg";
+import CameraIcon from "./eye.svg";
 
 export {
   DownloadIcon,
   BellIcon,
+  MapPinIcon,
+  PhoneIcon,
+  TrashIcon,
+  CameraIcon,
   MoreDotIcon,
   FileIcon,
   GridIcon,
