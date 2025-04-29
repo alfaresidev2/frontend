@@ -16,6 +16,8 @@ import {
   PlugInIcon,
   TableIcon,
   UserCircleIcon,
+  FolderIcon,
+  GroupIcon,
 } from "../icons/index";
 
 type NavItem = {
@@ -35,6 +37,16 @@ const navItems: NavItem[] = [
     icon: <CalenderIcon />,
     name: "Calendar",
     path: "/calendar",
+  },
+  {
+    icon: <FolderIcon />,
+    name: "Category",
+    path: "/category",
+  },
+  {
+    icon: <GroupIcon />,
+    name: "Influencer",
+    path: "/influencer",
   },
   {
     icon: <UserCircleIcon />,
