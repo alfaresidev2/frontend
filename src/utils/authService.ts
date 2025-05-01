@@ -4,7 +4,7 @@ const API_URL = 'http://localhost:3001';
 // Login function
 export const loginUser = async (email: string, password: string) => {
   try {
-    const response = await fetch(`${API_URL}/api/admin/login`, {
+    const response = await fetch(`${API_URL}/api/admin/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -28,7 +28,7 @@ export const loginUser = async (email: string, password: string) => {
 // Function to get user profile using JWT
 export const getUserProfile = async (token: string) => {
   try {
-    const response = await fetch(`${API_URL}/api/admin/profile`, {
+    const response = await fetch(`${API_URL}/api/admin/auth/profile`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -50,7 +50,7 @@ export const getUserProfile = async (token: string) => {
 // Function to check if token is valid
 export const validateToken = async (token: string) => {
   try {
-    const response = await fetch(`${API_URL}/api/admin/validate-token`, {
+    const response = await fetch(`${API_URL}/api/admin/auth/validate-token`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

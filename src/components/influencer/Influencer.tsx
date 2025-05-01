@@ -1,107 +1,88 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { PlusIcon, CloseIcon } from "@/icons";
+import React, { useState, useRef, useEffect } from "react";
+import { PlusIcon, CloseIcon, PencilIcon, TrashBinIcon } from "@/icons";
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
 import { useModal } from "@/hooks/useModal";
 import Image from "next/image";
+import ReactCrop, { Crop, PixelCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
+import api from "@/utils/axios";
+
+interface Category {
+    _id: string;
+    name: string;
+    description: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
 
 interface Platform {
-    name: string;
+    _id?: string;
+    platform: string;
     url: string;
-    icon?: React.ReactNode;
 }
 
 interface Influencer {
-    id: string;
+    _id: string;
     name: string;
     email: string;
-    mobile: string;
+    phoneNumber: string;
     gender: string;
-    categories: string[];
+    category: Category[];
     bio: string;
-    photos: string[];
+    images: string[];
     videos: string[];
-    platforms: Platform[];
-    profilePicture?: string;
+    socialMedia: Platform[];
+    profileImage?: string;
     tags: string[];
     emailSent: boolean;
-}
-
-interface Category {
-    id: string;
-    name: string;
+    isVerified: boolean;
+    createdAt: string;
+    updatedAt: string;
+    updates?: {
+        welcomeMailWithPasswordSent: boolean;
+        welcomeMailWithPasswordSentAt: string;
+    };
 }
 
 const PREDEFINED_PLATFORMS = [
     {
         id: "instagram",
-        name: "Instagram",
-        icon: (
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2c2.717 0 3.056.01 4.122.06 1.065.05 1.79.217 2.428.465.66.254 1.216.598 1.772 1.153.509.5.902 1.105 1.153 1.772.247.637.415 1.363.465 2.428.047 1.066.06 1.405.06 4.122 0 2.717-.01 3.056-.06 4.122-.05 1.065-.218 1.79-.465 2.428a4.883 4.883 0 01-1.153 1.772c-.5.508-1.105.902-1.772 1.153-.637.247-1.363.415-2.428.465-1.066.047-1.405.06-4.122.06-2.717 0-3.056-.01-4.122-.06-1.065-.05-1.79-.218-2.428-.465a4.89 4.89 0 01-1.772-1.153 4.904 4.904 0 01-1.153-1.772c-.248-.637-.415-1.363-.465-2.428C2.013 15.056 2 14.717 2 12c0-2.717.01-3.056.06-4.122.05-1.066.217-1.79.465-2.428a4.88 4.88 0 011.153-1.772A4.897 4.897 0 015.45 2.525c.638-.248 1.362-.415 2.428-.465C8.944 2.013 9.283 2 12 2zm0 5a5 5 0 100 10 5 5 0 000-10zm6.5-.25a1.25 1.25 0 10-2.5 0 1.25 1.25 0 002.5 0zM12 9a3 3 0 110 6 3 3 0 010-6z" />
-            </svg>
-        )
+        name: "Instagram"
     },
     {
         id: "youtube",
-        name: "YouTube",
-        icon: (
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-            </svg>
-        )
+        name: "YouTube"
     },
     {
         id: "tiktok",
-        name: "TikTok",
-        icon: (
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-            </svg>
-        )
+        name: "TikTok"
     },
     {
         id: "facebook",
-        name: "Facebook",
-        icon: (
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-            </svg>
-        )
+        name: "Facebook"
     },
     {
         id: "twitter",
-        name: "Twitter",
-        icon: (
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z" />
-            </svg>
-        )
+        name: "Twitter"
     },
     {
         id: "linkedin",
-        name: "LinkedIn",
-        icon: (
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-            </svg>
-        )
+        name: "LinkedIn"
     },
     {
         id: "other",
-        name: "Other",
-        icon: (
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-4h2v2h-2zm0-2h2V7h-2z" />
-            </svg>
-        )
+        name: "Other"
     }
 ];
 
-interface PlatformInput extends Platform {
+interface PlatformInput {
     platformId: string;
+    platform: string;
+    url: string;
 }
 
 interface FilePreview {
@@ -123,35 +104,50 @@ const PREDEFINED_TAGS = [
     "Contest"
 ];
 
+interface ProfilePictureState {
+    src?: string;
+    crop?: Crop;
+    completedCrop?: PixelCrop;
+    aspect?: number;
+    scale?: number;
+}
+
+interface FormData {
+    name: string;
+    email: string;
+    phoneNumber: string;
+    gender: string;
+    bio: string;
+    images: string[];
+    videos: string[];
+    profileImage: string;
+}
+
+// Add S3 base URL constant
+const S3_BASE_URL = 'https://influencer-mega-bucket.s3.ap-south-1.amazonaws.com';
+
 export default function InfluencerPage() {
     const [influencers, setInfluencers] = useState<Influencer[]>([]);
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
-    const [platforms, setPlatforms] = useState<PlatformInput[]>([{ platformId: "", name: "", url: "" }]);
+    const [platforms, setPlatforms] = useState<PlatformInput[]>([{ platformId: "", platform: "", url: "" }]);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [isLoadingCategories, setIsLoadingCategories] = useState(false);
     const { isOpen: isAddModalOpen, openModal: openAddModal, closeModal: closeAddModal } = useModal();
     const { isOpen: isConfirmOpen, openModal: openConfirmModal, closeModal: closeConfirmModal } = useModal();
     const { isOpen: isEmailModalOpen, openModal: openEmailModal, closeModal: closeEmailModal } = useModal();
     const profilePictureRef = useRef<HTMLInputElement>(null);
 
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<FormData>({
         name: "",
         email: "",
-        mobile: "",
+        phoneNumber: "",
         gender: "male",
         bio: "",
-        photos: [],
+        images: [],
         videos: [],
-        profilePicture: "",
+        profileImage: "",
     });
-
-    // Sample categories - replace with actual categories from your backend
-    const categories: Category[] = [
-        { id: "1", name: "Fashion" },
-        { id: "2", name: "Technology" },
-        { id: "3", name: "Lifestyle" },
-        { id: "4", name: "Food" },
-        { id: "5", name: "Travel" },
-    ];
 
     const [filePreview, setFilePreview] = useState<{
         photos: FilePreview[];
@@ -164,6 +160,65 @@ export default function InfluencerPage() {
     const videoInputRef = useRef<HTMLInputElement>(null);
 
     const [profilePicturePreview, setProfilePicturePreview] = useState<FilePreview | null>(null);
+    const [profilePictureState, setProfilePictureState] = useState<ProfilePictureState>({
+        aspect: 1 // 1:1 aspect ratio for profile pictures
+    });
+    const imgRef = useRef<HTMLImageElement>(null);
+    const [showCropModal, setShowCropModal] = useState(false);
+    const [isCropping, setIsCropping] = useState(false);
+
+    const [tagInput, setTagInput] = useState("");
+    const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
+    const [isScraping, setIsScraping] = useState(false);
+
+    const [editingInfluencer, setEditingInfluencer] = useState<Influencer | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isTableLoading, setIsTableLoading] = useState(false);
+    const [isSendingCredentials, setIsSendingCredentials] = useState<string | null>(null);
+    const [flag, setFlag] = useState(false);
+
+    // Add new state for upload loading
+    const [uploadLoading, setUploadLoading] = useState<{
+        photos: { [key: string]: boolean };
+        videos: { [key: string]: boolean };
+        profilePicture: boolean;
+    }>({
+        photos: {},
+        videos: {},
+        profilePicture: false
+    });
+
+    // Add useEffect to fetch categories
+    useEffect(() => {
+        fetchCategories();
+        fetchInfluencers();
+    }, [!flag]);
+
+    const fetchInfluencers = async () => {
+        try {
+            setIsTableLoading(true);
+            const response = await api.get('/admin/influencer');
+            setInfluencers(response.data);
+        } catch (error) {
+            console.error('Error fetching influencers:', error);
+            alert('Failed to fetch influencers. Please try again later.');
+        } finally {
+            setIsTableLoading(false);
+        }
+    };
+
+    const fetchCategories = async () => {
+        try {
+            setIsLoadingCategories(true);
+            const response = await api.get('/admin/category');
+            setCategories(response.data.data);
+        } catch (error) {
+            console.error('Error fetching categories:', error);
+            alert('Failed to fetch categories. Please try again later.');
+        } finally {
+            setIsLoadingCategories(false);
+        }
+    };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -181,7 +236,7 @@ export default function InfluencerPage() {
     };
 
     const handleAddPlatform = () => {
-        setPlatforms([...platforms, { platformId: "", name: "", url: "" }]);
+        setPlatforms([...platforms, { platformId: "", platform: "", url: "" }]);
     };
 
     const handleRemovePlatform = (index: number) => {
@@ -195,8 +250,7 @@ export default function InfluencerPage() {
             newPlatforms[index] = {
                 ...newPlatforms[index],
                 platformId: value,
-                name: platform?.name || "",
-                icon: platform?.icon
+                platform: platform?.name || ""
             };
         } else {
             newPlatforms[index][field] = value;
@@ -204,7 +258,82 @@ export default function InfluencerPage() {
         setPlatforms(newPlatforms);
     };
 
-    const handleSubmit = () => {
+    const handleEdit = (influencer: Influencer) => {
+        setEditingInfluencer(influencer);
+        setFormData({
+            name: influencer.name,
+            email: influencer.email,
+            phoneNumber: influencer.phoneNumber,
+            gender: influencer.gender,
+            bio: influencer.bio,
+            images: influencer.images || [],
+            videos: influencer.videos || [],
+            profileImage: influencer.profileImage || "",
+        });
+        setSelectedCategories(influencer.category.map(cat => cat._id));
+        setSelectedTags(influencer.tags);
+        setPlatforms(influencer.socialMedia.map(platform => ({
+            platformId: platform.platform.toLowerCase(),
+            platform: platform.platform,
+            url: platform.url
+        })));
+
+        // Set file previews for existing media
+        if (influencer.images?.length > 0) {
+            setFilePreview(prev => ({
+                ...prev,
+                photos: influencer.images.map((url, index) => ({
+                    id: `existing-photo-${index}`,
+                    url,
+                    file: new File([], url.split('/').pop() || ''),
+                    type: 'image',
+                    signature: url
+                }))
+            }));
+        }
+
+        if (influencer.videos?.length > 0) {
+            setFilePreview(prev => ({
+                ...prev,
+                videos: influencer.videos.map((url, index) => ({
+                    id: `existing-video-${index}`,
+                    url,
+                    file: new File([], url.split('/').pop() || ''),
+                    type: 'video',
+                    signature: url
+                }))
+            }));
+        }
+
+        if (influencer.profileImage) {
+            setProfilePicturePreview({
+                id: 'existing-profile',
+                url: influencer.profileImage,
+                file: new File([], influencer.profileImage.split('/').pop() || ''),
+                type: 'image',
+                signature: influencer.profileImage
+            });
+        }
+
+        openAddModal();
+    };
+
+    const handleDelete = async (influencerId: string) => {
+        if (!window.confirm("Are you sure you want to delete this influencer?")) return;
+
+        setIsLoading(true);
+        try {
+            await api.delete(`/admin/influencer/${influencerId}`);
+            setInfluencers(influencers.filter(inf => inf._id !== influencerId));
+        } catch (error) {
+            console.error('Error deleting influencer:', error);
+            alert('Failed to delete influencer');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSubmit = async () => {
         // Validate required fields
         if (!formData.name.trim()) {
             alert('Name is required');
@@ -214,8 +343,12 @@ export default function InfluencerPage() {
             alert('Email is required');
             return;
         }
-        if (!formData.mobile.trim()) {
-            alert('Mobile number is required');
+        if (!formData.phoneNumber.trim()) {
+            alert('Phone number is required');
+            return;
+        }
+        if (!formData.profileImage && !profilePicturePreview) {
+            alert('Profile picture is required');
             return;
         }
         if (selectedCategories.length === 0) {
@@ -232,13 +365,19 @@ export default function InfluencerPage() {
 
         // Validate mobile format (assuming 10 digits)
         const mobileRegex = /^\+?[\d\s-]{10,}$/;
-        if (!mobileRegex.test(formData.mobile)) {
-            alert('Please enter a valid mobile number');
+        if (!mobileRegex.test(formData.phoneNumber)) {
+            alert('Please enter a valid phone number');
             return;
         }
 
-        // Filter out empty platform entries
-        const validPlatforms = platforms.filter(p => p.name && p.url);
+        // Filter out empty platform entries and transform to required format
+        const validPlatforms = platforms
+            .filter(p => p.platform && p.url)
+            .map(p => ({
+                platform: p.platform,
+                url: p.url
+            }));
+
         if (validPlatforms.length === 0) {
             alert('Please add at least one platform');
             return;
@@ -248,62 +387,120 @@ export default function InfluencerPage() {
         const urlRegex = /^https?:\/\/.+/;
         for (const platform of validPlatforms) {
             if (!urlRegex.test(platform.url)) {
-                alert(`Please enter a valid URL for ${platform.name}`);
+                alert(`Please enter a valid URL for ${platform.platform}`);
                 return;
             }
         }
 
+        // If all validations pass, create the influencer object and open confirmation modal
         const newInfluencer: Influencer = {
-            id: Date.now().toString(),
+            _id: editingInfluencer?._id || Date.now().toString(),
             ...formData,
-            categories: selectedCategories,
-            platforms: validPlatforms,
-            photos: filePreview.photos.map(p => p.url),
-            videos: filePreview.videos.map(v => v.url),
-            profilePicture: profilePicturePreview?.url || "",
+            category: selectedCategories.map(id => categories.find(c => c._id === id) as Category),
+            socialMedia: validPlatforms,
             tags: selectedTags,
-            emailSent: false
+            emailSent: editingInfluencer?.emailSent || false,
+            isVerified: editingInfluencer?.isVerified || false,
+            createdAt: editingInfluencer?.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString()
         };
-        openConfirmModal();
+
         setCurrentInfluencer(newInfluencer);
+        openConfirmModal();
     };
 
     const [currentInfluencer, setCurrentInfluencer] = useState<Influencer | null>(null);
 
-    const handleConfirm = () => {
-        if (currentInfluencer) {
-            setInfluencers(prev => [...prev, currentInfluencer]);
+    const handleConfirm = async () => {
+        if (!currentInfluencer) return;
+
+        setIsLoading(true);
+        try {
+            const dataToSend = {
+                name: currentInfluencer.name,
+                email: currentInfluencer.email,
+                phoneNumber: currentInfluencer.phoneNumber,
+                gender: currentInfluencer.gender,
+                bio: currentInfluencer.bio,
+                category: selectedCategories,
+                socialMedia: currentInfluencer.socialMedia,
+                tags: currentInfluencer.tags,
+                images: filePreview.photos.map(photo => photo.url),
+                videos: filePreview.videos.map(video => video.url),
+                profileImage: formData.profileImage
+            };
+
+            if (editingInfluencer) {
+                // Update existing influencer
+                const response = await api.put(`/admin/influencer/${editingInfluencer._id}`, dataToSend);
+                setFlag(!flag);
+                setCurrentInfluencer(response.data);
+            } else {
+                // Add new influencer
+                const response = await api.post('/admin/influencer', dataToSend);
+                setFlag(!flag);
+                setCurrentInfluencer(response.data);
+                openEmailModal();
+            }
+
             closeConfirmModal();
-            openEmailModal();
+            closeAddModal();
+            resetForm();
+        } catch (error) {
+            console.error('Error saving influencer:', error);
+            alert('Failed to save influencer. Please try again.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const handleSendCredentials = (sendNow: boolean) => {
+    const handleSendCredentials = async (sendNow: boolean) => {
         if (currentInfluencer) {
-            setInfluencers(prev => prev.map(inf =>
-                inf.id === currentInfluencer.id
-                    ? { ...inf, emailSent: sendNow }
-                    : inf
-            ));
+            try {
+                setIsSendingCredentials(currentInfluencer._id);
+                if (sendNow) {
+                    await api.post(`/admin/influencer/${currentInfluencer._id}/send-credentials`);
+
+                    // Update the influencer's email sent status in the list
+                    setInfluencers(prev => prev.map(inf =>
+                        inf._id === currentInfluencer._id
+                            ? {
+                                ...inf,
+                                updates: {
+                                    ...inf.updates,
+                                    welcomeMailWithPasswordSent: true,
+                                    welcomeMailWithPasswordSentAt: new Date().toISOString()
+                                }
+                            }
+                            : inf
+                    ));
+                }
+                closeEmailModal();
+                closeConfirmModal();
+                resetForm();
+            } catch (error) {
+                console.error('Error sending credentials:', error);
+                alert('Failed to send credentials. Please try again.');
+            } finally {
+                setIsSendingCredentials(null);
+            }
         }
-        closeEmailModal();
-        resetForm();
     };
 
     const resetForm = () => {
         setFormData({
             name: "",
             email: "",
-            mobile: "",
+            phoneNumber: "",
             gender: "male",
             bio: "",
-            photos: [],
+            images: [],
             videos: [],
-            profilePicture: "",
+            profileImage: "",
         });
         setSelectedCategories([]);
         setSelectedTags([]);
-        setPlatforms([{ platformId: "", name: "", url: "" }]);
+        setPlatforms([{ platformId: "", platform: "", url: "" }]);
         setFilePreview({
             photos: [],
             videos: []
@@ -312,7 +509,7 @@ export default function InfluencerPage() {
             URL.revokeObjectURL(profilePicturePreview.url);
         }
         setProfilePicturePreview(null);
-        closeAddModal();
+        setEditingInfluencer(null);
     };
 
     const generateFileSignature = (file: File): string => {
@@ -365,7 +562,38 @@ export default function InfluencerPage() {
         return false;
     };
 
-    const handleFileSelect = (type: 'photo' | 'video', files: FileList | null) => {
+    // Update uploadMedia function
+    const uploadMedia = async (file: File, type: 'photo' | 'video' | 'profilePicture'): Promise<string> => {
+        try {
+            // Get upload URL from server
+            const response = await api.get('/admin/upload-url', {
+                params: {
+                    fileName: file.name,
+                    fileType: type === 'photo' ? 'image' : type === 'video' ? 'video' : 'image'
+                }
+            });
+
+            const { url, key } = response.data;
+
+            // Upload file to the URL
+            await fetch(url, {
+                method: 'PUT',
+                body: file,
+                headers: {
+                    'Content-Type': file.type
+                }
+            });
+
+            // Return the complete S3 URL
+            return `${S3_BASE_URL}/${key}`;
+        } catch (error) {
+            console.error('Error uploading file:', error);
+            throw new Error('Failed to upload file');
+        }
+    };
+
+    // Update handleFileSelect
+    const handleFileSelect = async (type: 'photo' | 'video', files: FileList | null) => {
         if (!files || files.length === 0) return;
 
         const currentFiles = type === 'photo' ? filePreview.photos : filePreview.videos;
@@ -395,13 +623,7 @@ export default function InfluencerPage() {
             return;
         }
 
-        if (type === 'photo' && photoInputRef.current) {
-            photoInputRef.current.value = '';
-        }
-        if (type === 'video' && videoInputRef.current) {
-            videoInputRef.current.value = '';
-        }
-
+        // Create preview
         const newFile: FilePreview = {
             id: Date.now().toString(),
             url: URL.createObjectURL(file),
@@ -410,13 +632,53 @@ export default function InfluencerPage() {
             signature: generateFileSignature(file)
         };
 
+        // Add to preview
         setFilePreview(prev => ({
             ...prev,
             [type === 'photo' ? 'photos' : 'videos']: [...prev[type === 'photo' ? 'photos' : 'videos'], newFile]
         }));
+
+        // Set loading state
+        const mediaType = type === 'photo' ? 'photos' : 'videos';
+        setUploadLoading(prev => ({
+            ...prev,
+            [mediaType]: { ...prev[mediaType], [newFile.id]: true }
+        }));
+
+        try {
+            // Upload file
+            const uploadedUrl = await uploadMedia(file, type);
+
+            // Update form data with the uploaded URL
+            if (type === 'photo') {
+                setFormData(prev => ({
+                    ...prev,
+                    images: [...(prev.images || []), uploadedUrl]
+                }));
+            } else {
+                setFormData(prev => ({
+                    ...prev,
+                    videos: [...(prev.videos || []), uploadedUrl]
+                }));
+            }
+
+            // Clear loading state
+            setUploadLoading(prev => ({
+                ...prev,
+                [mediaType]: { ...prev[mediaType], [newFile.id]: false }
+            }));
+        } catch (error) {
+            // Remove the preview if upload fails
+            setFilePreview(prev => ({
+                ...prev,
+                [type === 'photo' ? 'photos' : 'videos']: prev[type === 'photo' ? 'photos' : 'videos'].filter(f => f.id !== newFile.id)
+            }));
+            alert('Failed to upload file. Please try again.');
+        }
     };
 
-    const handleProfilePictureSelect = (files: FileList | null) => {
+    // Update handleProfilePictureSelect
+    const handleProfilePictureSelect = async (files: FileList | null) => {
         if (!files || files.length === 0) return;
 
         const file = files[0];
@@ -425,28 +687,198 @@ export default function InfluencerPage() {
             return;
         }
 
-        if (profilePicturePreview?.url) {
-            URL.revokeObjectURL(profilePicturePreview.url);
+        // Set loading state
+        setUploadLoading(prev => ({
+            ...prev,
+            profilePicture: true
+        }));
+
+        try {
+            // Upload file
+            // const uploadedUrl = await uploadMedia(file, 'profilePicture');
+
+            // // Update form data
+            // setFormData(prev => ({
+            //     ...prev,
+            //     profileImage: uploadedUrl
+            // }));
+
+            // Create preview
+            const reader = new FileReader();
+            reader.addEventListener('load', () => {
+                setProfilePictureState(prev => ({
+                    ...prev,
+                    src: reader.result?.toString() || '',
+                    crop: undefined
+                }));
+                setShowCropModal(true);
+            });
+            reader.readAsDataURL(file);
+        } catch (error) {
+            alert('Failed to upload profile picture. Please try again.');
+        } finally {
+            setUploadLoading(prev => ({
+                ...prev,
+                profilePicture: false
+            }));
         }
+    };
 
-        const newFile: FilePreview = {
-            id: Date.now().toString(),
-            url: URL.createObjectURL(file),
-            file,
-            type: 'image',
-            signature: generateFileSignature(file)
-        };
+    const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+        const { width, height } = e.currentTarget;
+        const cropWidth = Math.min(width, height);
+        const cropHeight = cropWidth;
+        const x = (width - cropWidth) / 2;
+        const y = (height - cropHeight) / 2;
 
-        setProfilePicturePreview(newFile);
+        setProfilePictureState(prev => ({
+            ...prev,
+            crop: {
+                unit: 'px',
+                x,
+                y,
+                width: cropWidth,
+                height: cropHeight
+            }
+        }));
+    };
+
+    const handleCropComplete = (crop: PixelCrop) => {
+        setProfilePictureState(prev => ({
+            ...prev,
+            completedCrop: crop
+        }));
+    };
+
+    const handleCropChange = (crop: Crop) => {
+        setProfilePictureState(prev => ({
+            ...prev,
+            crop
+        }));
+    };
+
+    const handleCropApply = async () => {
+        if (!imgRef.current || !profilePictureState.completedCrop) return;
+
+        setIsCropping(true);
+        try {
+            const image = imgRef.current;
+            const crop = profilePictureState.completedCrop;
+            const scale = profilePictureState.scale || 1;
+
+            const scaleX = image.naturalWidth / image.width;
+            const scaleY = image.naturalHeight / image.height;
+            const pixelRatio = window.devicePixelRatio;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = crop.width * pixelRatio;
+            canvas.height = crop.height * pixelRatio;
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+            ctx.imageSmoothingQuality = 'high';
+
+            ctx.drawImage(
+                image,
+                crop.x * scaleX / scale,
+                crop.y * scaleY / scale,
+                crop.width * scaleX / scale,
+                crop.height * scaleY / scale,
+                0,
+                0,
+                crop.width,
+                crop.height
+            );
+
+            // Convert canvas to blob
+            canvas.toBlob(async (blob) => {
+                if (!blob) return;
+
+                // Create a File object from the blob
+                const croppedFile = new File([blob], 'cropped-profile.jpg', { type: 'image/jpeg' });
+
+                try {
+                    setUploadLoading(prev => ({ ...prev, profilePicture: true }));
+                    const url: string = await uploadMedia(croppedFile, "photo");
+
+                    if (url) {
+                        setFormData(prev => ({ ...prev, profileImage: url }));
+                        setProfilePicturePreview({
+                            id: Date.now().toString(),
+                            url: url,
+                            file: croppedFile,
+                            type: 'image',
+                            signature: generateFileSignature(croppedFile)
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error uploading cropped image:', error);
+                    alert('Failed to upload cropped image. Please try again.');
+                } finally {
+                    setUploadLoading(prev => ({ ...prev, profilePicture: false }));
+                    setShowCropModal(false);
+                    setIsCropping(false);
+                }
+            }, 'image/jpeg', 0.95);
+        } catch (error) {
+            console.error('Error processing crop:', error);
+            alert('Failed to process image crop. Please try again.');
+            setIsCropping(false);
+        }
+    };
+
+    const handleTagInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setTagInput(value);
+
+        if (value.trim()) {
+            const filtered = PREDEFINED_TAGS.filter(tag =>
+                tag.toLowerCase().includes(value.toLowerCase()) &&
+                !selectedTags.includes(tag)
+            );
+            setSuggestedTags(filtered);
+        } else {
+            setSuggestedTags([]);
+        }
+    };
+
+    const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' && tagInput.trim()) {
+            e.preventDefault();
+            if (!selectedTags.includes(tagInput)) {
+                setSelectedTags(prev => [...prev, tagInput]);
+            }
+            setTagInput('');
+            setSuggestedTags([]);
+        }
     };
 
     const handleTagSelect = (tag: string) => {
-        setSelectedTags(prev => {
-            if (prev.includes(tag)) {
-                return prev.filter(t => t !== tag);
-            }
-            return [...prev, tag];
-        });
+        if (!selectedTags.includes(tag)) {
+            setSelectedTags(prev => [...prev, tag]);
+        }
+        setTagInput('');
+        setSuggestedTags([]);
+    };
+
+    const handleTagRemove = (tagToRemove: string) => {
+        setSelectedTags(prev => prev.filter(tag => tag !== tagToRemove));
+    };
+
+    const handleCloseAddModal = () => {
+        resetForm();
+        setEditingInfluencer(null);
+        closeAddModal();
+    };
+
+    const isAnyMediaUploading = () => {
+        return (
+            uploadLoading.profilePicture ||
+            Object.values(uploadLoading.photos).some(Boolean) ||
+            Object.values(uploadLoading.videos).some(Boolean)
+        );
     };
 
     return (
@@ -456,20 +888,26 @@ export default function InfluencerPage() {
                     size="sm"
                     onClick={openAddModal}
                     startIcon={<PlusIcon />}
+                    disabled={isLoading || isTableLoading}
                 >
-                    Add Influencer
+                    {isLoading ? 'Loading...' : 'Add Influencer'}
                 </Button>
             </div>
 
             {/* Influencers Table */}
             <div className="p-6 bg-white rounded-lg shadow dark:bg-gray-800">
-                {influencers.length === 0 ? (
+                {isTableLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 dark:border-blue-400"></div>
+                    </div>
+                ) : influencers.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                         <p className="mb-4 text-gray-500 dark:text-gray-400">No influencers added yet</p>
                         <Button
                             size="sm"
                             onClick={openAddModal}
                             startIcon={<PlusIcon />}
+                            disabled={isLoading || isTableLoading}
                         >
                             Add Your First Influencer
                         </Button>
@@ -482,7 +920,7 @@ export default function InfluencerPage() {
                                     <th scope="col" className="px-6 py-3">Profile</th>
                                     <th scope="col" className="px-6 py-3">Name</th>
                                     <th scope="col" className="px-6 py-3">Email</th>
-                                    <th scope="col" className="px-6 py-3">Mobile</th>
+                                    <th scope="col" className="px-6 py-3">Phone Number</th>
                                     <th scope="col" className="px-6 py-3">Categories</th>
                                     <th scope="col" className="px-6 py-3">Email Status</th>
                                     <th scope="col" className="px-6 py-3">Actions</th>
@@ -490,12 +928,12 @@ export default function InfluencerPage() {
                             </thead>
                             <tbody>
                                 {influencers.map((influencer) => (
-                                    <tr key={influencer.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                                    <tr key={influencer._id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
                                         <td className="px-6 py-4">
-                                            {influencer.profilePicture && (
+                                            {influencer.profileImage && (
                                                 <div className="relative w-10 h-10 rounded-full overflow-hidden">
                                                     <Image
-                                                        src={influencer.profilePicture}
+                                                        src={influencer.profileImage}
                                                         alt={influencer.name}
                                                         fill
                                                         className="object-cover"
@@ -507,19 +945,19 @@ export default function InfluencerPage() {
                                             {influencer.name}
                                         </td>
                                         <td className="px-6 py-4">{influencer.email}</td>
-                                        <td className="px-6 py-4">{influencer.mobile}</td>
+                                        <td className="px-6 py-4">{influencer.phoneNumber}</td>
                                         <td className="px-6 py-4">
                                             <div className="flex flex-wrap gap-2">
-                                                {influencer.categories.map((catId) => (
-                                                    <span key={catId} className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200">
-                                                        {categories.find(c => c.id === catId)?.name}
+                                                {influencer?.category?.map((cat) => (
+                                                    <span key={cat._id} className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200">
+                                                        {cat.name}
                                                     </span>
                                                 ))}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            {influencer.emailSent ? (
-                                                <span className="px-2 py-1 text-xs font-medium text-green-600 bg-green-100 rounded-full">
+                                            {influencer.updates?.welcomeMailWithPasswordSent ? (
+                                                <span className="px-2 py-1 text-xs font-medium text-green-600 bg-green-100 rounded-full dark:bg-green-900 dark:text-green-200">
                                                     Sent
                                                 </span>
                                             ) : (
@@ -531,16 +969,38 @@ export default function InfluencerPage() {
                                                         setCurrentInfluencer(influencer);
                                                         openEmailModal();
                                                     }}
+                                                    disabled={isSendingCredentials === influencer._id || isTableLoading}
                                                 >
-                                                    Send Credentials
+                                                    {isSendingCredentials === influencer._id ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500 dark:border-blue-400"></div>
+                                                            Sending...
+                                                        </div>
+                                                    ) : (
+                                                        'Send Credentials'
+                                                    )}
                                                 </Button>
-
                                             )}
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
-                                                <Button size="sm" variant="outline">Edit</Button>
-                                                <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
+                                                <Button 
+                                                    size="sm" 
+                                                    variant="outline"
+                                                    onClick={() => handleEdit(influencer)}
+                                                    startIcon={<PencilIcon />}
+                                                    disabled={isLoading || isSendingCredentials === influencer._id || isTableLoading}
+                                                >
+                                                    Edit
+                                                </Button>
+                                                <Button 
+                                                    size="sm" 
+                                                    variant="outline" 
+                                                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                                    onClick={() => handleDelete(influencer._id)}
+                                                    startIcon={<TrashBinIcon />}
+                                                    disabled={isLoading || isSendingCredentials === influencer._id || isTableLoading}
+                                                >
                                                     Delete
                                                 </Button>
                                             </div>
@@ -556,23 +1016,21 @@ export default function InfluencerPage() {
             {/* Add Influencer Modal */}
             <Modal
                 isOpen={isAddModalOpen}
-                onClose={closeAddModal}
-                className="max-w-[800px] !fixed !right-0 !top-0 !bottom-0 !translate-x-0 !rounded-l-2xl !rounded-r-none "
+                onClose={handleCloseAddModal}
+                className="max-w-[800px] !fixed !right-0 !top-0 !bottom-0 !translate-x-0 !rounded-l-2xl !rounded-r-none"
             >
                 <div className="h-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm">
-
                     <div className="h-full flex flex-col">
                         <div className="flex items-center justify-between p-5 lg:p-6 border-b border-gray-200 dark:border-gray-700">
                             <h4 className="text-lg font-medium text-gray-800 dark:text-white/90">
-                                Add New Influencer
+                                {editingInfluencer ? "Edit Influencer" : "Add New Influencer"}
                             </h4>
-
-                            <CloseIcon className="w-4 h-4" onClick={closeAddModal} />
+                            <CloseIcon className="w-4 h-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" onClick={handleCloseAddModal} />
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-5 lg:p-6 max-h-[calc(100vh-90px)]">
+                            <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
 
-                            <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-6">
                                 {/* Basic Information */}
                                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                     <div>
@@ -604,14 +1062,14 @@ export default function InfluencerPage() {
                                         />
                                     </div>
                                     <div>
-                                        <label htmlFor="mobile" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                                            Mobile
+                                        <label htmlFor="phoneNumber" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                                            Phone Number
                                         </label>
                                         <input
                                             type="tel"
-                                            id="mobile"
-                                            name="mobile"
-                                            value={formData.mobile}
+                                            id="phoneNumber"
+                                            name="phoneNumber"
+                                            value={formData.phoneNumber}
                                             onChange={handleChange}
                                             className="w-full px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                             required
@@ -634,6 +1092,74 @@ export default function InfluencerPage() {
                                         </select>
                                     </div>
                                 </div>
+                                {/* Profile Picture with Cropping */}
+                                <div>
+                                    <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                                        Profile Picture <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="file"
+                                        ref={profilePictureRef}
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={(e) => handleProfilePictureSelect(e.target.files)}
+                                        disabled={uploadLoading.profilePicture}
+                                    />
+                                    <div className="space-y-4">
+                                        {profilePicturePreview ? (
+                                            <div className="relative w-32 h-32 group">
+                                                <div className="absolute inset-0 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
+                                                    <Image
+                                                        src={profilePicturePreview.url}
+                                                        alt="Profile Preview"
+                                                        fill
+                                                        className="object-cover"
+                                                        sizes="(max-width: 128px) 100vw, 128px"
+                                                    />
+                                                </div>
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="primary"
+                                                        onClick={() => {
+                                                            if (profilePicturePreview.url) {
+                                                                URL.revokeObjectURL(profilePicturePreview.url);
+                                                            }
+                                                            setProfilePicturePreview(null);
+                                                            setFormData(prev => ({ ...prev, profileImage: '' }));
+                                                            if (profilePictureRef.current) {
+                                                                profilePictureRef.current.value = '';
+                                                            }
+                                                        }}
+                                                        disabled={uploadLoading.profilePicture}
+                                                    >
+                                                        Remove
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div
+                                                onClick={() => !uploadLoading.profilePicture && profilePictureRef.current?.click()}
+                                                className={`w-32 h-32 flex items-center justify-center rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:border-gray-400 dark:hover:border-gray-500 ${uploadLoading.profilePicture ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            >
+                                                {uploadLoading.profilePicture ? (
+                                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 dark:border-blue-400"></div>
+                                                ) : (
+                                                    <div className="text-center">
+                                                        <div className="w-8 h-8 mx-auto mb-2 text-gray-400 dark:text-gray-500">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                            </svg>
+                                                        </div>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                            Upload Profile Picture
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
 
                                 {/* Categories */}
                                 <div>
@@ -641,33 +1167,37 @@ export default function InfluencerPage() {
                                         Categories
                                     </label>
                                     <div className="flex flex-wrap gap-2 mb-2">
-                                        {selectedCategories.map((catId) => (
-                                            <span
-                                                key={catId}
-                                                className="inline-flex items-center px-3 py-1 text-sm font-medium text-blue-600 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200"
-                                            >
-                                                {categories.find(c => c.id === catId)?.name}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleCategorySelect(catId)}
-                                                    className="ml-2 focus:outline-none  hover:text-blue-800 dark:hover:text-blue-300"
+                                        {selectedCategories.map((catId) => {
+                                            const category = categories.find(c => c._id === catId);
+                                            return category ? (
+                                                <span
+                                                    key={catId}
+                                                    className="inline-flex items-center px-3 py-1 text-sm font-medium text-blue-600 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200"
                                                 >
-                                                    <CloseIcon className="w-4 h-4 " />
-                                                </button>
-                                            </span>
-                                        ))}
+                                                    {category.name}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleCategorySelect(catId)}
+                                                        className="ml-2 focus:outline-none hover:text-blue-800 dark:hover:text-blue-300"
+                                                    >
+                                                        <CloseIcon className="w-4 h-4" />
+                                                    </button>
+                                                </span>
+                                            ) : null;
+                                        })}
                                     </div>
                                     <select
                                         value=""
                                         onChange={(e) => handleCategorySelect(e.target.value)}
                                         className="w-full px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        disabled={isLoadingCategories}
                                     >
-                                        <option value="">Select categories...</option>
+                                        <option value="">{isLoadingCategories ? 'Loading categories...' : 'Select categories...'}</option>
                                         {categories.map((category) => (
                                             <option
-                                                key={category.id}
-                                                value={category.id}
-                                                disabled={selectedCategories.includes(category.id)}
+                                                key={category._id}
+                                                value={category._id}
+                                                disabled={selectedCategories.includes(category._id)}
                                             >
                                                 {category.name}
                                             </option>
@@ -680,8 +1210,8 @@ export default function InfluencerPage() {
                                     <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
                                         Tags
                                     </label>
-                                    <div className="flex flex-wrap gap-2 mb-2">
-                                        <div className="flex flex-wrap gap-2">
+                                    <div className="space-y-2">
+                                        <div className="flex flex-wrap gap-2 mb-2">
                                             {selectedTags.map((tag) => (
                                                 <span
                                                     key={tag}
@@ -690,7 +1220,7 @@ export default function InfluencerPage() {
                                                     {tag}
                                                     <button
                                                         type="button"
-                                                        onClick={() => handleTagSelect(tag)}
+                                                        onClick={() => handleTagRemove(tag)}
                                                         className="ml-2 focus:outline-none hover:text-purple-800 dark:hover:text-purple-300"
                                                     >
                                                         <CloseIcon className="w-4 h-4" />
@@ -698,22 +1228,30 @@ export default function InfluencerPage() {
                                                 </span>
                                             ))}
                                         </div>
-                                        <select
-                                            value=""
-                                            onChange={(e) => handleTagSelect(e.target.value)}
-                                            className="w-full px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                        >
-                                            <option value="">Select tags...</option>
-                                            {PREDEFINED_TAGS.map((tag) => (
-                                                <option
-                                                    key={tag}
-                                                    value={tag}
-                                                    disabled={selectedTags.includes(tag)}
-                                                >
-                                                    {tag}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={tagInput}
+                                                onChange={handleTagInputChange}
+                                                onKeyDown={handleTagKeyDown}
+                                                placeholder="Type and press Enter to add tags..."
+                                                className="w-full px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                            />
+                                            {suggestedTags.length > 0 && (
+                                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg dark:bg-gray-700 dark:border-gray-600">
+                                                    {suggestedTags.map((tag) => (
+                                                        <button
+                                                            key={tag}
+                                                            type="button"
+                                                            onClick={() => handleTagSelect(tag)}
+                                                            className="w-full px-3 py-2 text-left text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-600"
+                                                        >
+                                                            {tag}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -735,55 +1273,51 @@ export default function InfluencerPage() {
                                 {/* Platform URLs */}
                                 <div>
                                     <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                                        Platform URLs
+                                        Social Media Platforms
                                     </label>
                                     {platforms.map((platform, index) => (
-                                        <div key={index} className="flex gap-4 mb-4">
-                                            <div className="w-1/4.5">
-                                                <select
-                                                    value={platform.platformId}
-                                                    onChange={(e) => handlePlatformChange(index, "platformId", e.target.value)}
-                                                    className="w-full px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                                >
-                                                    <option value="">Select platform..</option>
-                                                    {PREDEFINED_PLATFORMS.map((p) => (
-                                                        <option
-                                                            key={p.id}
-                                                            value={p.id}
-                                                            disabled={platforms.some(
-                                                                (platform, i) => i !== index && platform.platformId === p.id
-                                                            )}
-                                                        >
-
-                                                            {p.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div className="flex-1 flex items-center gap-2">
-                                                {platform.icon && (
-                                                    <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                                                        {platform.icon}
-                                                    </div>
+                                        <div key={index} className="space-y-4 mb-6">
+                                            <div className="flex gap-4">
+                                                <div className="w-1/4">
+                                                    <select
+                                                        value={platform.platformId}
+                                                        onChange={(e) => handlePlatformChange(index, "platformId", e.target.value)}
+                                                        className="w-full px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                                    >
+                                                        <option value="">Select platform..</option>
+                                                        {PREDEFINED_PLATFORMS.map((p) => (
+                                                            <option
+                                                                key={p.id}
+                                                                value={p.id}
+                                                                disabled={platforms.some(
+                                                                    (platform, i) => i !== index && platform.platformId === p.id
+                                                                )}
+                                                            >
+                                                                {p.name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex-1">
+                                                    <input
+                                                        type="url"
+                                                        placeholder="URL"
+                                                        value={platform.url}
+                                                        onChange={(e) => handlePlatformChange(index, "url", e.target.value)}
+                                                        className="w-full px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                                    />
+                                                </div>
+                                                {platforms.length > 1 && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="primary"
+                                                        onClick={() => handleRemovePlatform(index)}
+                                                        className="!p-2"
+                                                    >
+                                                        <CloseIcon className="w-4 h-4" />
+                                                    </Button>
                                                 )}
-                                                <input
-                                                    type="url"
-                                                    placeholder="URL"
-                                                    value={platform.url}
-                                                    onChange={(e) => handlePlatformChange(index, "url", e.target.value)}
-                                                    className="flex-1 px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                                />
                                             </div>
-                                            {platforms.length > 1 && (
-                                                <Button
-                                                    size="sm"
-                                                    variant="primary"
-                                                    onClick={() => handleRemovePlatform(index)}
-                                                    className="!p-2"
-                                                >
-                                                    <CloseIcon className="w-4 h-4" />
-                                                </Button>
-                                            )}
                                         </div>
                                     ))}
                                     <Button
@@ -791,6 +1325,7 @@ export default function InfluencerPage() {
                                         variant="outline"
                                         onClick={handleAddPlatform}
                                         startIcon={<PlusIcon />}
+                                        disabled={platforms.some(p => !p.platformId || !p.url) || isScraping}
                                     >
                                         Add Platform
                                     </Button>
@@ -808,12 +1343,13 @@ export default function InfluencerPage() {
                                             className="hidden"
                                             accept="image/*"
                                             onChange={(e) => handleFileSelect('photo', e.target.files)}
+                                            disabled={Object.values(uploadLoading.photos).some(Boolean)}
                                         />
                                         <div className="space-y-4">
                                             <div className="grid grid-cols-2 gap-4">
                                                 {filePreview.photos.map((photo) => (
                                                     <div key={photo.id} className="relative group aspect-square">
-                                                        <div className="absolute inset-0 rounded-lg overflow-hidden">
+                                                        <div className="absolute inset-0 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
                                                             <Image
                                                                 src={photo.url}
                                                                 alt="Preview"
@@ -822,35 +1358,43 @@ export default function InfluencerPage() {
                                                             />
                                                         </div>
                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                            <Button
-                                                                size="sm"
-                                                                variant="primary"
-                                                                onClick={() => removeFile('photo', photo.id)}
-                                                            >
-                                                                Remove
-                                                            </Button>
+                                                            {uploadLoading.photos[photo.id] ? (
+                                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                                                            ) : (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="primary"
+                                                                    onClick={() => removeFile('photo', photo.id)}
+                                                                >
+                                                                    Remove
+                                                                </Button>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 ))}
                                             </div>
                                             {filePreview.photos.length < 5 && (
                                                 <div
-                                                    onClick={() => photoInputRef.current?.click()}
-                                                    className="aspect-square flex items-center justify-center w-full border-2 border-dashed rounded-lg border-gray-300 dark:border-gray-600 cursor-pointer hover:border-gray-400 dark:hover:border-gray-500"
+                                                    onClick={() => !Object.values(uploadLoading.photos).some(Boolean) && photoInputRef.current?.click()}
+                                                    className={`aspect-square flex items-center justify-center w-full border-2 border-dashed rounded-lg border-gray-300 dark:border-gray-600 cursor-pointer hover:border-gray-400 dark:hover:border-gray-500 ${Object.values(uploadLoading.photos).some(Boolean) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 >
-                                                    <div className="text-center">
-                                                        <div className="w-8 h-8 mx-auto mb-2 text-gray-400">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                                            </svg>
+                                                    {Object.values(uploadLoading.photos).some(Boolean) ? (
+                                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 dark:border-blue-400"></div>
+                                                    ) : (
+                                                        <div className="text-center">
+                                                            <div className="w-8 h-8 mx-auto mb-2 text-gray-400 dark:text-gray-500">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                                </svg>
+                                                            </div>
+                                                            <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                                                                Click to upload or drag and drop
+                                                            </p>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                                Support formats: jpg, png (Max 5 photos)
+                                                            </p>
                                                         </div>
-                                                        <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
-                                                            Click to upload or drag and drop
-                                                        </p>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                            Support formats: jpg, png (Max 5 photos)
-                                                        </p>
-                                                    </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -865,12 +1409,13 @@ export default function InfluencerPage() {
                                             className="hidden"
                                             accept="video/mp4"
                                             onChange={(e) => handleFileSelect('video', e.target.files)}
+                                            disabled={Object.values(uploadLoading.videos).some(Boolean)}
                                         />
                                         <div className="space-y-4">
                                             <div className="grid grid-cols-2 gap-4">
                                                 {filePreview.videos.map((video) => (
                                                     <div key={video.id} className="relative group aspect-square">
-                                                        <div className="absolute inset-0 rounded-lg overflow-hidden">
+                                                        <div className="absolute inset-0 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
                                                             <video
                                                                 src={video.url}
                                                                 className="absolute inset-0 w-full h-full object-cover"
@@ -878,107 +1423,134 @@ export default function InfluencerPage() {
                                                             />
                                                         </div>
                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                            <Button
-                                                                size="sm"
-                                                                variant="primary"
-                                                                onClick={() => removeFile('video', video.id)}
-                                                            >
-                                                                Remove
-                                                            </Button>
+                                                            {uploadLoading.videos[video.id] ? (
+                                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                                                            ) : (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="primary"
+                                                                    onClick={() => removeFile('video', video.id)}
+                                                                >
+                                                                    Remove
+                                                                </Button>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 ))}
                                             </div>
                                             {filePreview.videos.length < 2 && (
                                                 <div
-                                                    onClick={() => videoInputRef.current?.click()}
-                                                    className="aspect-square flex items-center justify-center w-full border-2 border-dashed rounded-lg border-gray-300 dark:border-gray-600 cursor-pointer hover:border-gray-400 dark:hover:border-gray-500"
+                                                    onClick={() => !Object.values(uploadLoading.videos).some(Boolean) && videoInputRef.current?.click()}
+                                                    className={`aspect-square flex items-center justify-center w-full border-2 border-dashed rounded-lg border-gray-300 dark:border-gray-600 cursor-pointer hover:border-gray-400 dark:hover:border-gray-500 ${Object.values(uploadLoading.videos).some(Boolean) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 >
-                                                    <div className="text-center">
-                                                        <div className="w-8 h-8 mx-auto mb-2 text-gray-400">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                                            </svg>
+                                                    {Object.values(uploadLoading.videos).some(Boolean) ? (
+                                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 dark:border-blue-400"></div>
+                                                    ) : (
+                                                        <div className="text-center">
+                                                            <div className="w-8 h-8 mx-auto mb-2 text-gray-400 dark:text-gray-500">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                                </svg>
+                                                            </div>
+                                                            <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                                                                Click to upload or drag and drop
+                                                            </p>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                                Support formats: Video Mp4 (Max 2 videos)
+                                                            </p>
                                                         </div>
-                                                        <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
-                                                            Click to upload or drag and drop
-                                                        </p>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                            Support formats: Video Mp4 (Max 2 videos)
-                                                        </p>
-                                                    </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Profile Picture */}
-                                <div>
-                                    <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                                        Profile Picture
-                                    </label>
-                                    <input
-                                        type="file"
-                                        ref={profilePictureRef}
-                                        className="hidden"
-                                        accept="image/*"
-                                        onChange={(e) => handleProfilePictureSelect(e.target.files)}
-                                    />
+                                {/* Crop Modal */}
+                                <Modal
+                                    isOpen={showCropModal}
+                                    onClose={() => setShowCropModal(false)}
+                                    className="max-w-[800px] p-5"
+                                >
                                     <div className="space-y-4">
-                                        {profilePicturePreview ? (
-                                            <div className="relative w-32 h-32 group">
-                                                <div className="absolute inset-0 rounded-full overflow-hidden">
-                                                    <Image
-                                                        src={profilePicturePreview.url}
-                                                        alt="Profile Preview"
-                                                        fill
-                                                        className="object-cover"
-                                                    />
-                                                </div>
-                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="primary"
-                                                        onClick={() => {
-                                                            if (profilePicturePreview.url) {
-                                                                URL.revokeObjectURL(profilePicturePreview.url);
-                                                            }
-                                                            setProfilePicturePreview(null);
-                                                        }}
+                                        <h4 className="text-lg font-medium text-gray-800 dark:text-white/90">
+                                            Crop Profile Picture
+                                        </h4>
+                                        <div className="relative max-h-[60vh] overflow-auto flex items-center justify-center">
+                                            {profilePictureState.src && (
+                                                <div className="relative w-full max-w-[600px] mx-auto">
+                                                    <ReactCrop
+                                                        crop={profilePictureState.crop}
+                                                        onChange={handleCropChange}
+                                                        onComplete={handleCropComplete}
+                                                        aspect={1}
+                                                        circularCrop
                                                     >
-                                                        Remove
-                                                    </Button>
+                                                        <img
+                                                            ref={imgRef}
+                                                            src={profilePictureState.src}
+                                                            onLoad={onImageLoad}
+                                                            alt="Crop preview"
+                                                            className="max-w-full max-h-[50vh] object-contain"
+                                                        />
+                                                    </ReactCrop>
                                                 </div>
-                                            </div>
-                                        ) : (
-                                            <div
-                                                onClick={() => profilePictureRef.current?.click()}
-                                                className="w-32 h-32 flex items-center justify-center rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:border-gray-400 dark:hover:border-gray-500"
+                                            )}
+                                        </div>
+                                        <div className="flex items-center justify-end gap-3">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setShowCropModal(false);
+                                                    setProfilePictureState({
+                                                        aspect: 1
+                                                    });
+                                                }}
+                                                disabled={isCropping}
                                             >
-                                                <div className="text-center">
-                                                    <div className="w-8 h-8 mx-auto mb-2 text-gray-400">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                                        </svg>
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="primary"
+                                                onClick={handleCropApply}
+                                                disabled={isCropping}
+                                            >
+                                                {isCropping ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                                        Applying...
                                                     </div>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                        Upload Profile Picture
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        )}
+                                                ) : (
+                                                    'Apply Crop'
+                                                )}
+                                            </Button>
+                                        </div>
                                     </div>
-                                </div>
-
-
+                                </Modal>
 
                                 <div className="flex items-center justify-end gap-3">
-                                    <Button size="sm" variant="outline" onClick={() => { closeAddModal(), resetForm() }}>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={handleCloseAddModal}
+                                        disabled={isLoading || isAnyMediaUploading()}
+                                    >
                                         Cancel
                                     </Button>
-                                    <Button size="sm">
-                                        Add Influencer
+                                    <Button
+                                        type="button"
+                                        onClick={handleSubmit}
+                                        className="add-influencer-btn"
+                                        disabled={isLoading || isAnyMediaUploading()}
+                                    >
+                                        {isLoading ? (
+                                            <div className="flex items-center gap-2">
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                                Saving...
+                                            </div>
+                                        ) : editingInfluencer ? 'Update Influencer' : 'Add Influencer'}
                                     </Button>
                                 </div>
                             </form>
@@ -993,9 +1565,9 @@ export default function InfluencerPage() {
                 onClose={closeConfirmModal}
                 className="max-w-[600px] max-h-[80vh] !p-0 overflow-y-auto"
             >
-                <div className="h-full flex flex-col">
+                <div className="h-full flex flex-col bg-white dark:bg-gray-800">
                     <div className="p-5 border-b border-gray-200 dark:border-gray-700">
-                        <h4 className="text-lg font-medium text-gray-800 dark:text-white/90">
+                        <h4 className="text-lg font-medium text-gray-800 dark:text-white">
                             Confirm Influencer Details
                         </h4>
                     </div>
@@ -1009,19 +1581,19 @@ export default function InfluencerPage() {
                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                         <div>
                                             <p className="text-gray-500 dark:text-gray-400">Name</p>
-                                            <p className="font-medium">{currentInfluencer.name}</p>
+                                            <p className="font-medium text-gray-900 dark:text-white">{currentInfluencer.name}</p>
                                         </div>
                                         <div>
                                             <p className="text-gray-500 dark:text-gray-400">Email</p>
-                                            <p className="font-medium">{currentInfluencer.email}</p>
+                                            <p className="font-medium text-gray-900 dark:text-white">{currentInfluencer.email}</p>
                                         </div>
                                         <div>
-                                            <p className="text-gray-500 dark:text-gray-400">Mobile</p>
-                                            <p className="font-medium">{currentInfluencer.mobile}</p>
+                                            <p className="text-gray-500 dark:text-gray-400">Phone Number</p>
+                                            <p className="font-medium text-gray-900 dark:text-white">{currentInfluencer.phoneNumber}</p>
                                         </div>
                                         <div>
                                             <p className="text-gray-500 dark:text-gray-400">Gender</p>
-                                            <p className="font-medium capitalize">{currentInfluencer.gender}</p>
+                                            <p className="font-medium text-gray-900 dark:text-white capitalize">{currentInfluencer.gender}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1030,12 +1602,12 @@ export default function InfluencerPage() {
                                 <div>
                                     <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Categories</h5>
                                     <div className="flex flex-wrap gap-2">
-                                        {currentInfluencer.categories.map(catId => (
+                                        {currentInfluencer.category.map(cat => (
                                             <span
-                                                key={catId}
+                                                key={cat._id}
                                                 className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200"
                                             >
-                                                {categories.find(c => c.id === catId)?.name}
+                                                {cat.name}
                                             </span>
                                         ))}
                                     </div>
@@ -1053,9 +1625,9 @@ export default function InfluencerPage() {
                                 <div>
                                     <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Platforms</h5>
                                     <div className="space-y-2">
-                                        {currentInfluencer.platforms.map((platform, index) => (
-                                            <div key={index} className="flex items-center gap-2 text-sm">
-                                                <span className="font-medium min-w-[80px]">{platform.name}:</span>
+                                        {currentInfluencer.socialMedia.map((platform, index) => (
+                                            <div key={platform._id || index} className="flex items-center gap-2 text-sm">
+                                                <span className="font-medium min-w-[80px]">{platform.platform}:</span>
                                                 <a
                                                     href={platform.url}
                                                     target="_blank"
@@ -1118,7 +1690,14 @@ export default function InfluencerPage() {
                                 Cancel
                             </Button>
                             <Button size="sm" variant="primary" onClick={handleConfirm}>
-                                Confirm & Proceed
+                                {isLoading ? (
+                                    <div className="flex items-center gap-2">
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                        Saving...
+                                    </div>
+                                ) : (
+                                    'Confirm & Proceed'
+                                )}
                             </Button>
                         </div>
                     </div>
@@ -1129,22 +1708,48 @@ export default function InfluencerPage() {
             <Modal
                 isOpen={isEmailModalOpen}
                 onClose={closeEmailModal}
-                className="max-w-[500px] p-5"
+                className="max-w-[500px]"
             >
-                <div className="space-y-4">
-                    <h4 className="text-lg font-medium text-gray-800 dark:text-white/90">
-                        Send Login Credentials
-                    </h4>
-                    <p className="text-gray-600 dark:text-gray-400">
-                        Would you like to send the login credentials now?
-                    </p>
-                    <div className="flex items-center justify-end gap-3 mt-6">
-                        <Button size="sm" variant="outline" onClick={() => handleSendCredentials(false)}>
-                            Not Now
-                        </Button>
-                        <Button size="sm" onClick={() => handleSendCredentials(true)}>
-                            Send Now
-                        </Button>
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-lg font-medium text-gray-800 dark:text-white">
+                                Send Login Credentials
+                            </h4>
+                            <CloseIcon 
+                                className="w-4 h-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer" 
+                                onClick={closeEmailModal} 
+                            />
+                        </div>
+                        <div className="py-4">
+                            <p className="text-gray-600 dark:text-gray-400">
+                                Would you like to send the login credentials to <span className="font-medium text-gray-900 dark:text-white">{currentInfluencer?.email}</span>?
+                            </p>
+                        </div>
+                        <div className="flex items-center justify-end gap-3 pt-2">
+                            <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => handleSendCredentials(false)}
+                                disabled={isSendingCredentials === currentInfluencer?._id}
+                            >
+                                Not Now
+                            </Button>
+                            <Button 
+                                size="sm" 
+                                onClick={() => handleSendCredentials(true)}
+                                disabled={isSendingCredentials === currentInfluencer?._id}
+                            >
+                                {isSendingCredentials === currentInfluencer?._id ? (
+                                    <div className="flex items-center gap-2">
+                                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                                        Sending...
+                                    </div>
+                                ) : (
+                                    'Send Now'
+                                )}
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </Modal>

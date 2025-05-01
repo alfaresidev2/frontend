@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { PlusIcon, PencilIcon, TrashBinIcon } from "@/icons";
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
 import { useModal } from "@/hooks/useModal";
+import api from "@/utils/axios";
 
 interface Category {
-  id: string;
+  _id: string;
   name: string;
   description: string;
 }
@@ -20,31 +21,52 @@ export default function CategoryPage() {
   });
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const { isOpen, openModal, closeModal } = useModal();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/admin/category');
+      setCategories(response.data?.data || []);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      alert('Failed to load categories');
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) return;
 
-    if (editingCategory) {
-      // Update existing category
-      setCategories(categories.map(cat => 
-        cat.id === editingCategory.id 
-          ? { ...cat, name: formData.name, description: formData.description }
-          : cat
-      ));
-      setEditingCategory(null);
-    } else {
-      // Add new category
-      const newCategory: Category = {
-        id: Date.now().toString(),
-        name: formData.name,
-        description: formData.description,
-      };
-      setCategories([...categories, newCategory]);
-    }
+    setIsLoading(true);
+    try {
+      console.log(editingCategory)
+      if (editingCategory) {
+        // Update existing category
+        await api.put(`/admin/category/${editingCategory._id}`, formData);
+        setCategories(categories.map(cat => 
+          cat._id === editingCategory._id 
+            ? { ...cat, name: formData.name, description: formData.description }
+            : cat
+        ));
+        setEditingCategory(null);
+      } else {
+        // Add new category
+        const response = await api.post('/admin/category', formData);
+        setCategories([...categories, response.data.data]);
+      }
 
-    setFormData({ name: "", description: "" });
-    closeModal();
+      setFormData({ name: "", description: "" });
+      closeModal();
+    } catch (error) {
+      console.error('Error saving category:', error);
+      alert('Failed to save category');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -61,9 +83,18 @@ export default function CategoryPage() {
     openModal();
   };
 
-  const handleDelete = (categoryId: string) => {
-    if (window.confirm("Are you sure you want to delete this category?")) {
-      setCategories(categories.filter(cat => cat.id !== categoryId));
+  const handleDelete = async (categoryId: string) => {
+    if (!window.confirm("Are you sure you want to delete this category?")) return;
+
+    setIsLoading(true);
+    try {
+      await api.delete(`/admin/category/${categoryId}`);
+      setCategories(categories.filter(cat => cat._id !== categoryId));
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      alert('Failed to delete category');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -85,6 +116,7 @@ export default function CategoryPage() {
           size="sm"
           onClick={openModal}
           startIcon={<PlusIcon />}
+          disabled={isLoading}
         >
           Add Category
         </Button>
@@ -99,6 +131,7 @@ export default function CategoryPage() {
               size="sm"
               onClick={openModal}
               startIcon={<PlusIcon />}
+              disabled={isLoading}
             >
               Add Your First Category
             </Button>
@@ -115,7 +148,7 @@ export default function CategoryPage() {
               </thead>
               <tbody>
                 {categories.map((category) => (
-                  <tr key={category.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                  <tr key={category._id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                       {category.name}
                     </td>
@@ -129,14 +162,16 @@ export default function CategoryPage() {
                           variant="outline"
                           onClick={() => handleEdit(category)}
                           startIcon={<PencilIcon />}
+                          disabled={isLoading}
                         >
                           Edit
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleDelete(category.id)}
+                          onClick={() => handleDelete(category._id)}
                           startIcon={<TrashBinIcon />}
+                          disabled={isLoading}
                         >
                           Delete
                         </Button>
@@ -173,6 +208,7 @@ export default function CategoryPage() {
               className="w-full px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               placeholder="Enter category name"
               required
+              disabled={isLoading}
             />
           </div>
           <div>
@@ -187,14 +223,15 @@ export default function CategoryPage() {
               rows={3}
               className="w-full px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               placeholder="Enter category description"
+              disabled={isLoading}
             />
           </div>
           <div className="flex items-center justify-end w-full gap-3 mt-6">
-            <Button size="sm" variant="outline" onClick={handleModalClose}>
+            <Button size="sm" variant="outline" onClick={handleModalClose} disabled={isLoading}>
               Close
             </Button>
-            <Button size="sm" onClick={handleButtonClick}>
-              {editingCategory ? "Update Category" : "Add Category"}
+            <Button size="sm" onClick={handleButtonClick} disabled={isLoading}>
+              {isLoading ? 'Saving...' : editingCategory ? 'Update Category' : 'Add Category'}
             </Button>
           </div>
         </form>
