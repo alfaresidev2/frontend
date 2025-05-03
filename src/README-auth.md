@@ -4,6 +4,7 @@ This project implements a complete JWT-based authentication system for a React/N
 
 ## Key Components
 
+
 1. **AuthContext** (`src/context/AuthContext.tsx`)
    - Provides global authentication state
    - Handles login/logout functionality
