@@ -7,7 +7,6 @@ import { EyeCloseIcon, EyeIcon } from "@/icons";
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import React, { useState } from "react";
-import { loginUser } from "@/utils/authService";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
