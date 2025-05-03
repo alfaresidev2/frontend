@@ -226,7 +226,6 @@ export default function InfluencerPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [platforms, setPlatforms] = useState<PlatformInput[]>([{ platformId: "", platform: "", url: "" }])
   const [categories, setCategories] = useState<Category[]>([])
-  const [isLoadingCategories, setIsLoadingCategories] = useState(false)
   const { isOpen: isAddModalOpen, openModal: openAddModal, closeModal: closeAddModal } = useModal()
   const { isOpen: isConfirmOpen, openModal: openConfirmModal, closeModal: closeConfirmModal } = useModal()
   const { isOpen: isEmailModalOpen, openModal: openEmailModal, closeModal: closeEmailModal } = useModal()
@@ -263,7 +262,6 @@ export default function InfluencerPage() {
 
   const [tagInput, setTagInput] = useState("")
   const [suggestedTags, setSuggestedTags] = useState<string[]>([])
-  const [isScraping, setIsScraping] = useState(false)
 
   const [editingInfluencer, setEditingInfluencer] = useState<Influencer | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -297,7 +295,7 @@ export default function InfluencerPage() {
   useEffect(() => {
     fetchCategories()
     fetchInfluencers()
-  }, [!flag])
+  }, [flag])
 
   // Add useEffect for click outside handler
   useEffect(() => {
@@ -329,14 +327,11 @@ export default function InfluencerPage() {
 
   const fetchCategories = async () => {
     try {
-      setIsLoadingCategories(true)
       const response = await api.get("/admin/category")
       setCategories(response.data.data)
     } catch (error) {
       console.error("Error fetching categories:", error)
       alert("Failed to fetch categories. Please try again later.")
-    } finally {
-      setIsLoadingCategories(false)
     }
   }
 
@@ -852,6 +847,7 @@ export default function InfluencerPage() {
         [mediaType]: { ...prev[mediaType], [newFile.id]: false },
       }))
     } catch (error) {
+      console.error("Error uploading file:", error)
       // Remove the preview if upload fails
       setFilePreview((prev) => ({
         ...prev,
@@ -901,6 +897,7 @@ export default function InfluencerPage() {
       })
       reader.readAsDataURL(file)
     } catch (error) {
+      console.error("Error uploading profile picture:", error)
       alert("Failed to upload profile picture. Please try again.")
     } finally {
       setUploadLoading((prev) => ({
@@ -1670,7 +1667,7 @@ export default function InfluencerPage() {
                           variant="outline"
                           onClick={handleAddPlatform}
                           startIcon={<PlusIcon />}
-                          disabled={platforms.some((p) => !p.platformId || !p.url) || isScraping}
+                          disabled={platforms.some((p) => !p.platformId || !p.url) }
                         >
                           Add Platform
                         </Button>
@@ -1847,7 +1844,7 @@ export default function InfluencerPage() {
                                   aspect={1}
                                   circularCrop
                                 >
-                                  <img
+                                  <Image
                                     ref={imgRef}
                                     src={profilePictureState.src || "/placeholder.svg"}
                                     onLoad={onImageLoad}

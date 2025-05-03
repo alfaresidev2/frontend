@@ -1,5 +1,5 @@
 // Base API URL
-const API_URL = 'http://localhost:3001';
+const API_URL = 'https://api.mashaheer.co';
 
 // Login function
 export const loginUser = async (email: string, password: string) => {
