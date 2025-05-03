@@ -457,7 +457,7 @@ export default function InfluencerPage() {
         ...prev,
         photos: influencer.images.map((url, index) => ({
           id: `existing-photo-${index}`,
-          url,
+          url: url.startsWith('http') ? url : `${S3_BASE_URL}/${url}`,
           file: new File([], url.split("/").pop() || ""),
           type: "image",
           signature: url,
@@ -470,7 +470,7 @@ export default function InfluencerPage() {
         ...prev,
         videos: influencer.videos.map((url, index) => ({
           id: `existing-video-${index}`,
-          url,
+          url: url.startsWith('http') ? url : `${S3_BASE_URL}/${url}`,
           file: new File([], url.split("/").pop() || ""),
           type: "video",
           signature: url,
@@ -481,7 +481,7 @@ export default function InfluencerPage() {
     if (influencer.profileImage) {
       setProfilePicturePreview({
         id: "existing-profile",
-        url: influencer.profileImage,
+        url: influencer.profileImage.startsWith('http') ? influencer.profileImage : `${S3_BASE_URL}/${influencer.profileImage}`,
         file: new File([], influencer.profileImage.split("/").pop() || ""),
         type: "image",
         signature: influencer.profileImage,
@@ -593,6 +593,14 @@ export default function InfluencerPage() {
 
     setIsLoading(true)
     try {
+      // Only use S3 URLs for images and videos
+      const s3Photos = filePreview.photos
+        .map(photo => photo.url)
+        .filter(url => url.startsWith(S3_BASE_URL))
+      const s3Videos = filePreview.videos
+        .map(video => video.url)
+        .filter(url => url.startsWith(S3_BASE_URL))
+
       const dataToSend = {
         name: currentInfluencer.name,
         email: currentInfluencer.email,
@@ -602,8 +610,8 @@ export default function InfluencerPage() {
         category: selectedCategories,
         socialMedia: currentInfluencer.socialMedia,
         tags: currentInfluencer.tags,
-        images: filePreview.photos.map((photo) => photo.url),
-        videos: filePreview.videos.map((video) => video.url),
+        images: s3Photos,
+        videos: s3Videos,
         profileImage: formData.profileImage,
       }
 
@@ -802,7 +810,7 @@ export default function InfluencerPage() {
       return
     }
 
-    // Create preview
+    // Create preview (initially with blob URL)
     const newFile: FilePreview = {
       id: Date.now().toString(),
       url: URL.createObjectURL(file),
@@ -828,18 +836,21 @@ export default function InfluencerPage() {
       // Upload file
       const uploadedUrl = await uploadMedia(file, type)
 
-      // Update form data with the uploaded URL
-      if (type === "photo") {
-        setFormData((prev) => ({
-          ...prev,
-          images: [...(prev.images || []), uploadedUrl],
-        }))
-      } else {
-        setFormData((prev) => ({
-          ...prev,
-          videos: [...(prev.videos || []), uploadedUrl],
-        }))
-      }
+      // Update form data with the uploaded S3 URL (replace blob URL)
+      setFormData((prev) => ({
+        ...prev,
+        [type === "photo" ? "images" : "videos"]: [
+          ...(prev[type === "photo" ? "images" : "videos"] || []).filter((url) => url.startsWith(S3_BASE_URL)),
+          uploadedUrl,
+        ],
+      }))
+      // Update the preview URL to use the S3 URL
+      setFilePreview((prev) => ({
+        ...prev,
+        [mediaType]: prev[mediaType].map((media) =>
+          media.id === newFile.id ? { ...media, url: uploadedUrl } : media
+        ),
+      }))
 
       // Clear loading state
       setUploadLoading((prev) => ({
@@ -1378,7 +1389,6 @@ export default function InfluencerPage() {
                         >
                           <option value="male">Male</option>
                           <option value="female">Female</option>
-                          <option value="other">Other</option>
                         </select>
                       </div>
                     </motion.div>
@@ -1694,7 +1704,7 @@ export default function InfluencerPage() {
                               <div key={photo.id} className="relative group aspect-square">
                                 <div className="absolute inset-0 rounded-lg overflow-hidden bg-gray-50">
                                   <Image
-                                    src={photo.url || "/placeholder.svg"}
+                                    src={photo.url || "/placeholder.svg" }
                                     alt="Preview"
                                     fill
                                     className="object-cover"
@@ -1987,6 +1997,23 @@ export default function InfluencerPage() {
                         ))}
                       </div>
                     </div>
+
+                    {/* Tags */}
+                    {currentInfluencer.tags && currentInfluencer.tags.length > 0 && (
+                      <div>
+                        <h5 className="font-medium text-gray-900 dark:text-gray-200 mb-3">Tags</h5>
+                        <div className="flex flex-wrap gap-2">
+                          {currentInfluencer.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-2 py-1 text-xs font-medium text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/40 rounded-full"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Bio */}
                     {currentInfluencer.bio && (
