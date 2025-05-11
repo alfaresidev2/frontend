@@ -7,7 +7,6 @@ import { EyeCloseIcon, EyeIcon } from "@/icons";
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import React, { useState } from "react";
-import { loginUser } from "@/utils/authService";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -29,12 +28,12 @@ export default function SignInForm() {
 
     try {
       // Try to login directly using the service first
-      const response = await loginUser(email, password);
+      await login(email, password);
       
-      if (response.token) {
-        // If successful, use the auth context to set the user state
-        await login(email, password);
-      }
+      // if (response.token) {
+      //   // If successful, use the auth context to set the user state
+      //   await login(email, password);
+      // }
     } catch (err) {
       console.error("Login error:", err);
       setError(err instanceof Error ? err.message : "Login failed. Please check your credentials.");
