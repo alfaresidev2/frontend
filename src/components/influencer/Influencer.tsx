@@ -11,6 +11,7 @@ import ReactCrop, { type Crop, type PixelCrop } from "react-image-crop"
 import "react-image-crop/dist/ReactCrop.css"
 import api from "@/utils/axios"
 import { motion, AnimatePresence } from "framer-motion"
+import { useRouter } from "next/navigation"
 
 interface Category {
   _id: string
@@ -42,6 +43,7 @@ interface Influencer {
   tags: string[]
   emailSent: boolean
   isVerified: boolean
+  isBlocked: boolean
   createdAt: string
   updatedAt: string
   updates?: {
@@ -221,6 +223,7 @@ interface CategoryOption {
 }
 
 export default function InfluencerPage() {
+  const router = useRouter()
   const [influencers, setInfluencers] = useState<Influencer[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -291,6 +294,12 @@ export default function InfluencerPage() {
   // Add new state for dropdown visibility
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false)
 
+  const [openActionMenu, setOpenActionMenu] = useState<string | null>(null)
+
+  const handleActionMenuToggle = (influencerId: string | null) => {
+    setOpenActionMenu(openActionMenu === influencerId ? null : influencerId)
+  }
+
   // Add useEffect to fetch categories
   useEffect(() => {
     fetchCategories()
@@ -311,6 +320,20 @@ export default function InfluencerPage() {
       document.removeEventListener("mousedown", handleClickOutside)
     }
   }, [])
+
+  // Add click outside handler to close the action menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openActionMenu && !(event.target as Element).closest('.relative')) {
+        setOpenActionMenu(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [openActionMenu])
 
   const fetchInfluencers = async () => {
     try {
@@ -578,6 +601,7 @@ export default function InfluencerPage() {
       tags: selectedTags,
       emailSent: editingInfluencer?.emailSent || false,
       isVerified: editingInfluencer?.isVerified || false,
+      isBlocked: editingInfluencer?.isBlocked || false,
       createdAt: editingInfluencer?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -1094,6 +1118,39 @@ export default function InfluencerPage() {
     )
   }
 
+  const handleRowClick = (influencerId: string) => {
+    router.push(`/influencer/${influencerId}`)
+  }
+
+  const [isBlocking, setIsBlocking] = useState<string | null>(null)
+
+  // Add handleBlockUnblock function
+  const handleBlockUnblock = async (influencerId: string, currentBlockedStatus: boolean) => {
+    try {
+      setIsBlocking(influencerId)
+      await api.put(`/admin/influencer/${influencerId}/block`, {
+        isBlocked: !currentBlockedStatus
+      })
+      
+      // Update the influencer's blocked status in the list
+      setInfluencers((prev) =>
+        prev.map((inf) =>
+          inf._id === influencerId
+            ? {
+                ...inf,
+                isBlocked: !currentBlockedStatus,
+              }
+            : inf
+        ),
+      )
+    } catch (error) {
+      console.error("Error updating block status:", error)
+      alert("Failed to update block status. Please try again.")
+    } finally {
+      setIsBlocking(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-end">
@@ -1144,7 +1201,7 @@ export default function InfluencerPage() {
             </Button>
           </motion.div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="">
             <table className="w-full text-sm text-left text-gray-600 dark:text-gray-400">
               <thead className="text-xs uppercase bg-gray-50 dark:bg-slate-800/90 text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-slate-700/50">
                 <tr>
@@ -1166,6 +1223,9 @@ export default function InfluencerPage() {
                   <th scope="col" className="px-6 py-4">
                     Email Status
                   </th>
+                  <th scope="col" className="px-6 py-4">
+                    Status
+                  </th>
                   <th scope="col" className="px-6 py-4 text-right">
                     Actions
                   </th>
@@ -1175,7 +1235,10 @@ export default function InfluencerPage() {
                 {influencers.map((influencer) => (
                   <tr
                     key={influencer._id}
-                    className="border-b border-gray-200 dark:border-slate-700/50 transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/70"
+                    onClick={() => handleRowClick(influencer._id)}
+                    className={`border-b border-gray-200 dark:border-slate-700/50 transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/70 cursor-pointer ${
+                      influencer.isBlocked ? 'opacity-75' : ''
+                    }`}
                   >
                     <td className="px-6 py-4">
                       {influencer.profileImage && (
@@ -1204,7 +1267,7 @@ export default function InfluencerPage() {
                         ))}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                       {influencer.updates?.welcomeMailWithPasswordSent ? (
                         <span className="px-2 py-1 text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/40 rounded-full">
                           Sent
@@ -1213,7 +1276,7 @@ export default function InfluencerPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="!px-2 !py-1 !text-xs rounded-xl border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-200"
+                          className="!px-2 !py-1 z-50 !text-xs rounded-xl border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-200"
                           onClick={() => {
                             setCurrentInfluencer(influencer)
                             openEmailModal()
@@ -1221,7 +1284,7 @@ export default function InfluencerPage() {
                           disabled={isSendingCredentials === influencer._id || isTableLoading}
                         >
                           {isSendingCredentials === influencer._id ? (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 ">
                               <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
                               Sending...
                             </div>
@@ -1231,28 +1294,83 @@ export default function InfluencerPage() {
                         </Button>
                       )}
                     </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          influencer.isBlocked
+                            ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/40'
+                            : 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/40'
+                        }`}
+                      >
+                        {influencer.isBlocked ? 'Blocked' : 'Active'}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleEdit(influencer)}
-                          startIcon={<PencilIcon />}
-                          disabled={isLoading || isSendingCredentials === influencer._id || isTableLoading}
-                          className="transform transition-transform hover:scale-105 active:scale-95 border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-200"
+                          onClick={() => handleBlockUnblock(influencer._id, influencer.isBlocked)}
+                          disabled={isLoading || isSendingCredentials === influencer._id || isTableLoading || isBlocking === influencer._id}
+                          className={`transform transition-transform hover:scale-105 active:scale-95 border-gray-300 dark:border-slate-700 ${
+                            influencer.isBlocked
+                              ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
+                              : 'text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300'
+                          }`}
                         >
-                          Edit
+                          {isBlocking === influencer._id ? (
+                            <div className="flex items-center gap-2">
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
+                              Updating...
+                            </div>
+                          ) : influencer.isBlocked ? (
+                            'Unblock'
+                          ) : (
+                            'Block'
+                          )}
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDelete(influencer._id)}
-                          startIcon={<TrashBinIcon />}
-                          disabled={isLoading || isSendingCredentials === influencer._id || isTableLoading}
-                          className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 border-gray-300 dark:border-slate-700"
-                        >
-                          Delete
-                        </Button>
+
+                        <div className="relative">
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleActionMenuToggle(influencer._id)
+                            }}
+                            className="w-9 h-11 flex items-center justify-center rounded-lg border border-gray-300 dark:border-slate-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800"
+                          >
+                            <span className="text-xl leading-none text-gray-600 dark:text-gray-400 font-bold">⋮</span>
+                          </div>
+
+                          {openActionMenu === influencer._id && (
+                            <div 
+                              className="absolute right-0 mt-2 w-48 rounded-lg z-50 shadow-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 py-1 "
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                onClick={() => {
+                                  handleEdit(influencer)
+                                  handleActionMenuToggle(null)
+                                }}
+                                disabled={isLoading || isSendingCredentials === influencer._id || isTableLoading}
+                                className="w-full px-6 py-2 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <PencilIcon className="w-6 h-6" />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleDelete(influencer._id)
+                                  handleActionMenuToggle(null)
+                                }}
+                                disabled={isLoading || isSendingCredentials === influencer._id || isTableLoading}
+                                className="w-full px-6 py-2 text-sm text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <TrashBinIcon className="w-6 h-6" />
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
