@@ -59,7 +59,7 @@ export default function CategoryPage() {
         setCategories([...categories, response.data.data]);
       }
 
-      setFormData({ name: "", description: "" });
+    setFormData({ name: "", description: "" });
       closeModal();
     } catch (error) {
       console.error('Error saving category:', error);
@@ -245,7 +245,7 @@ export default function CategoryPage() {
                 onClick={handleButtonClick} 
                 disabled={isLoading}
                 className="transform transition-transform hover:scale-105 active:scale-95 rounded-xl px-4 py-2"
-              >
+                >
                 {isLoading ? 'Saving...' : editingCategory ? 'Update Category' : 'Add Category'}
               </Button>
             </div>
