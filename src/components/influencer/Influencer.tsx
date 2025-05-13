@@ -43,13 +43,13 @@ interface Influencer {
   tags: string[]
   emailSent: boolean
   isVerified: boolean
-  isBlocked: boolean
+  disabled: boolean
   createdAt: string
   updatedAt: string
-  updates?: {
+  meta?: {
     welcomeMailWithPasswordSent: boolean
-    welcomeMailWithPasswordSentAt: string
   }
+
 }
 
 const PREDEFINED_PLATFORMS = [
@@ -338,8 +338,8 @@ export default function InfluencerPage() {
   const fetchInfluencers = async () => {
     try {
       setIsTableLoading(true)
-      const response = await api.get("/admin/influencer")
-      setInfluencers(response.data)
+      const response = await api.get("/user/list-influencers")
+      setInfluencers(response.data.docs)
     } catch (error) {
       console.error("Error fetching influencers:", error)
       alert("Failed to fetch influencers. Please try again later.")
@@ -350,8 +350,8 @@ export default function InfluencerPage() {
 
   const fetchCategories = async () => {
     try {
-      const response = await api.get("/admin/category")
-      setCategories(response.data.data)
+      const response = await api.get("/categories")
+      setCategories(response.data.docs)
     } catch (error) {
       console.error("Error fetching categories:", error)
       alert("Failed to fetch categories. Please try again later.")
@@ -519,7 +519,7 @@ export default function InfluencerPage() {
 
     setIsLoading(true)
     try {
-      await api.delete(`/admin/influencer/${influencerId}`)
+      await api.delete(`/user/${influencerId}`)
       setInfluencers(influencers.filter((inf) => inf._id !== influencerId))
     } catch (error) {
       console.error("Error deleting influencer:", error)
@@ -543,7 +543,7 @@ export default function InfluencerPage() {
       alert("Phone number is required")
       return
     }
-    if (!formData.bio.trim().length) {
+    if (!formData.bio?.trim().length) {
       alert("Bio is required")
       return
     }
@@ -601,7 +601,7 @@ export default function InfluencerPage() {
       tags: selectedTags,
       emailSent: editingInfluencer?.emailSent || false,
       isVerified: editingInfluencer?.isVerified || false,
-      isBlocked: editingInfluencer?.isBlocked || false,
+      disabled: editingInfluencer?.disabled || false,
       createdAt: editingInfluencer?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -641,12 +641,12 @@ export default function InfluencerPage() {
 
       if (editingInfluencer) {
         // Update existing influencer
-        const response = await api.put(`/admin/influencer/${editingInfluencer._id}`, dataToSend)
+        const response = await api.put(`/user/${editingInfluencer._id}`, dataToSend)
         setFlag(!flag)
         setCurrentInfluencer(response.data)
       } else {
         // Add new influencer
-        const response = await api.post("/admin/influencer", dataToSend)
+        const response = await api.post("/user/influencer", dataToSend)
         setFlag(!flag)
         setCurrentInfluencer(response.data)
         openEmailModal()
@@ -668,24 +668,24 @@ export default function InfluencerPage() {
       try {
         setIsSendingCredentials(currentInfluencer._id)
         if (sendNow) {
-          await api.post(`/admin/influencer/${currentInfluencer._id}/send-credentials`)
+          await api.post(`/auth/admin/influencer/${currentInfluencer._id}/send-credentials`)
 
           // Update the influencer's email sent status in the list
           setInfluencers((prev) =>
             prev.map((inf) =>
               inf._id === currentInfluencer._id
                 ? {
-                    ...inf,
-                    updates: {
-                      ...inf.updates,
-                      welcomeMailWithPasswordSent: true,
-                      welcomeMailWithPasswordSentAt: new Date().toISOString(),
-                    },
+                  ...inf,
+                  meta:{
+                    ...inf.meta,
+                    welcomeMailWithPasswordSent: true,
                   }
+                }
                 : inf,
             ),
           )
         }
+       
         closeEmailModal()
         closeConfirmModal()
         resetForm()
@@ -777,7 +777,7 @@ export default function InfluencerPage() {
   const uploadMedia = async (file: File, type: "photo" | "video" | "profilePicture"): Promise<string> => {
     try {
       // Get upload URL from server
-      const response = await api.get("/admin/upload-url", {
+      const response = await api.get("/upload-url", {
         params: {
           fileName: file.name,
           fileType: type === "photo" ? "image" : type === "video" ? "video" : "image",
@@ -785,6 +785,7 @@ export default function InfluencerPage() {
       })
 
       const { url, key } = response.data
+      console.log(response);
 
       // Upload file to the URL
       await fetch(url, {
@@ -1128,18 +1129,18 @@ export default function InfluencerPage() {
   const handleBlockUnblock = async (influencerId: string, currentBlockedStatus: boolean) => {
     try {
       setIsBlocking(influencerId)
-      await api.put(`/admin/influencer/${influencerId}/block`, {
-        isBlocked: !currentBlockedStatus
+      await api.put(`/user/${influencerId}`, {
+        disabled: !currentBlockedStatus
       })
-      
+
       // Update the influencer's blocked status in the list
       setInfluencers((prev) =>
         prev.map((inf) =>
           inf._id === influencerId
             ? {
-                ...inf,
-                isBlocked: !currentBlockedStatus,
-              }
+              ...inf,
+              disabled: !currentBlockedStatus,
+            }
             : inf
         ),
       )
@@ -1236,9 +1237,8 @@ export default function InfluencerPage() {
                   <tr
                     key={influencer._id}
                     onClick={() => handleRowClick(influencer._id)}
-                    className={`border-b border-gray-200 dark:border-slate-700/50 transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/70 cursor-pointer ${
-                      influencer.isBlocked ? 'opacity-75' : ''
-                    }`}
+                    className={`border-b border-gray-200 dark:border-slate-700/50 transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/70 cursor-pointer ${influencer.disabled ? 'opacity-75' : ''
+                      }`}
                   >
                     <td className="px-6 py-4">
                       {influencer.profileImage && (
@@ -1268,9 +1268,10 @@ export default function InfluencerPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                      {influencer.updates?.welcomeMailWithPasswordSent ? (
+                      {influencer?.meta?.welcomeMailWithPasswordSent ? (
                         <span className="px-2 py-1 text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/40 rounded-full">
                           Sent
+                          {influencer?.meta?.welcomeMailWithPasswordSent}
                         </span>
                       ) : (
                         <Button
@@ -1296,13 +1297,12 @@ export default function InfluencerPage() {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          influencer.isBlocked
-                            ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/40'
-                            : 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/40'
-                        }`}
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${influencer.disabled
+                          ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/40'
+                          : 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/40'
+                          }`}
                       >
-                        {influencer.isBlocked ? 'Blocked' : 'Active'}
+                        {influencer.disabled ? 'Blocked' : 'Active'}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -1310,20 +1310,19 @@ export default function InfluencerPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleBlockUnblock(influencer._id, influencer.isBlocked)}
+                          onClick={() => handleBlockUnblock(influencer._id, influencer.disabled)}
                           disabled={isLoading || isSendingCredentials === influencer._id || isTableLoading || isBlocking === influencer._id}
-                          className={`transform transition-transform hover:scale-105 active:scale-95 border-gray-300 dark:border-slate-700 ${
-                            influencer.isBlocked
-                              ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
-                              : 'text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300'
-                          }`}
+                          className={`transform transition-transform hover:scale-105 active:scale-95 border-gray-300 dark:border-slate-700 ${influencer.disabled
+                            ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
+                            : 'text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300'
+                            }`}
                         >
                           {isBlocking === influencer._id ? (
                             <div className="flex items-center gap-2">
                               <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
                               Updating...
                             </div>
-                          ) : influencer.isBlocked ? (
+                          ) : influencer.disabled ? (
                             'Unblock'
                           ) : (
                             'Block'
@@ -1342,7 +1341,7 @@ export default function InfluencerPage() {
                           </div>
 
                           {openActionMenu === influencer._id && (
-                            <div 
+                            <div
                               className="absolute right-0 mt-2 w-48 rounded-lg z-50 shadow-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 py-1 "
                               onClick={(e) => e.stopPropagation()}
                             >
@@ -1643,9 +1642,8 @@ export default function InfluencerPage() {
                                     key={category._id}
                                     type="button"
                                     onClick={() => handleCategorySelect(category._id)}
-                                    className={`w-full px-3 py-2 text-left text-black dark:text-gray-200 dark:hover:bg-slate-700 hover:bg-gray-200 ${
-                                      index === selectedCategoryIndex ? "bg-gray-200 dark:bg-slate-700" : ""
-                                    }`}
+                                    className={`w-full px-3 py-2 text-left text-black dark:text-gray-200 dark:hover:bg-slate-700 hover:bg-gray-200 ${index === selectedCategoryIndex ? "bg-gray-200 dark:bg-slate-700" : ""
+                                      }`}
                                   >
                                     {category.name}
                                   </button>
@@ -1705,9 +1703,8 @@ export default function InfluencerPage() {
                                     key={tag}
                                     type="button"
                                     onClick={() => handleTagSelect(tag)}
-                                    className={`w-full px-3 py-2 text-left text-gray-900  dark:text-white dark:hover:bg-slate-700 hover:bg-gray-200 ${
-                                      index === selectedTagIndex ? "bg-gray-200 dark:bg-slate-700" : ""
-                                    }`}
+                                    className={`w-full px-3 py-2 text-left text-gray-900  dark:text-white dark:hover:bg-slate-700 hover:bg-gray-200 ${index === selectedTagIndex ? "bg-gray-200 dark:bg-slate-700" : ""
+                                      }`}
                                   >
                                     {tag}
                                   </button>
@@ -1795,7 +1792,7 @@ export default function InfluencerPage() {
                           variant="outline"
                           onClick={handleAddPlatform}
                           startIcon={<PlusIcon />}
-                          disabled={platforms.some((p) => !p.platformId || !p.url) }
+                          disabled={platforms.some((p) => !p.platformId || !p.url)}
                         >
                           Add Platform
                         </Button>
@@ -1822,7 +1819,7 @@ export default function InfluencerPage() {
                               <div key={photo.id} className="relative group aspect-square">
                                 <div className="absolute inset-0 rounded-lg overflow-hidden bg-gray-50">
                                   <Image
-                                    src={photo.url || "/placeholder.svg" }
+                                    src={photo.url || "/placeholder.svg"}
                                     alt="Preview"
                                     fill
                                     className="object-cover"
@@ -1974,6 +1971,8 @@ export default function InfluencerPage() {
                                 >
                                   <Image
                                     ref={imgRef}
+                                    width={300}
+                                    height={300}
                                     src={profilePictureState.src || "/placeholder.svg"}
                                     onLoad={onImageLoad}
                                     alt="Crop preview"
@@ -2059,7 +2058,7 @@ export default function InfluencerPage() {
               className="h-full flex flex-col bg-white dark:bg-slate-900/95 backdrop-blur-sm rounded-[20px] border border-gray-200 dark:border-slate-800"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-            //   exit={{ scale: 0.95, opacity: 0 }}
+              //   exit={{ scale: 0.95, opacity: 0 }}
               transition={{
                 type: "spring",
                 damping: 30,
@@ -2192,7 +2191,7 @@ export default function InfluencerPage() {
                               {filePreview.videos.map((video) => (
                                 <div
                                   key={video.id}
-                                  className="relative aspect-square rounded-lg overflow-hidden bg-gray-50"
+                                  className="relative aspect-video rounded-lg overflow-hidden bg-gray-50"
                                 >
                                   <video
                                     src={video.url}
@@ -2240,7 +2239,7 @@ export default function InfluencerPage() {
               className="bg-white dark:bg-slate-900/95 backdrop-blur-sm rounded-[20px] border border-gray-200 dark:border-slate-800 p-6 lg:p-8"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-            //   exit={{ scale: 0.95, opacity: 0 }}
+              //   exit={{ scale: 0.95, opacity: 0 }}
               transition={{
                 type: "spring",
                 damping: 30,

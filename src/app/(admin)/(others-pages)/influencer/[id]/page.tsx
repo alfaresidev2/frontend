@@ -5,7 +5,6 @@ import { useParams } from "next/navigation"
 import Image from "next/image"
 import api from "@/utils/axios"
 import Button from "@/components/ui/button/Button"
-import {  PencilIcon, TrashBinIcon } from "@/icons"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 
@@ -52,12 +51,12 @@ export default function InfluencerDetailsPage() {
   const router = useRouter()
   const [influencer, setInfluencer] = useState<Influencer | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     const fetchInfluencer = async () => {
       try {
-        const response = await api.get(`/admin/influencer/${params.id}`)
+        const response = await api.get(`/user/${params.id}`)
+        console.log(response)
         setInfluencer(response.data)
       } catch (error) {
         console.error("Error fetching influencer:", error)
@@ -72,20 +71,6 @@ export default function InfluencerDetailsPage() {
     }
   }, [params.id])
 
-  const handleDelete = async () => {
-    if (!window.confirm("Are you sure you want to delete this influencer?")) return
-
-    setIsDeleting(true)
-    try {
-      await api.delete(`/admin/influencer/${params.id}`)
-      router.push("/influencer")
-    } catch (error) {
-      console.error("Error deleting influencer:", error)
-      alert("Failed to delete influencer")
-    } finally {
-      setIsDeleting(false)
-    }
-  }
 
   if (isLoading) {
     return (
