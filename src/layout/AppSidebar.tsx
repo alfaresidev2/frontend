@@ -12,7 +12,6 @@ import {
   PieChartIcon,
   FolderIcon,
   GroupIcon,
-  UserIcon,
   UserCircleIcon,
 } from "../icons/index";
 

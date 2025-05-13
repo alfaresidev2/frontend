@@ -1,15 +1,14 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect } from "react"
-import { PlusIcon, CloseIcon } from "@/icons"
+import { useState, useEffect } from "react"
+import { CloseIcon } from "@/icons"
 import { Modal } from "@/components/ui/modal"
 import Button from "@/components/ui/button/Button"
 import { useModal } from "@/hooks/useModal"
 import Image from "next/image"
 import api from "@/utils/axios"
 import { motion, AnimatePresence } from "framer-motion"
-import { useRouter } from "next/navigation"
 
 interface User {
   _id: string
@@ -36,7 +35,7 @@ interface Platform {
 
 
 // Add S3 base URL constant
-const S3_BASE_URL = "https://influencer-mega-bucket.s3.ap-south-1.amazonaws.com"
+// const S3_BASE_URL = "https://influencer-mega-bucket.s3.ap-south-1.amazonaws.com"
 
 // Add these animation variants after the interfaces
 const modalVariants = {
@@ -102,29 +101,8 @@ const staggerContainer = {
   },
 }
 
-const itemVariants = {
-  hidden: { y: 15, opacity: 0 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    transition: {
-      type: "spring",
-      damping: 30,
-      stiffness: 200,
-      duration: 0.4,
-    },
-  },
-  exit: {
-    y: -10,
-    opacity: 0,
-    transition: {
-      duration: 0.3,
-    },
-  },
-}
 
 export default function UserPage() {
-  const router = useRouter()
   const [users, setUsers] = useState<User[]>([])
   const [isTableLoading, setIsTableLoading] = useState(false)
   const [isBlocking, setIsBlocking] = useState<string | null>(null)
