@@ -38,7 +38,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const router = useRouter();
   const pathname = usePathname();
 
@@ -46,12 +46,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     const storedToken = Cookies.get('token') || localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
-    
+
     if (storedToken && storedUser) {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
     }
-    
+
     setLoading(false);
   }, []);
 
@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (!token && pathname !== "/signin") {
         router.push("/signin");
       }
-      
+
       // If authenticated and on signin page, redirect to home
       if (token && pathname === "/signin") {
         router.push("/");
@@ -73,26 +73,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const login = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      const response = await fetch("https://api.mashaheer.co/api/admin/auth/login", {
+      const response = await fetch("https://api.mashaheer.co/api/v1/auth/signin", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username: email, password }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.message || "Login failed");
       }
-      
+
       // Save token to cookies (for server-side auth) and localStorage (for client-side auth)
-      Cookies.set('token', data.token, { expires: 7, path: '/' }); // 7 days expiry
-      localStorage.setItem("token", data.token);
-      
+      Cookies.set('token', data.accessToken, { expires: 7, path: '/' }); // 7 days expiry
+      localStorage.setItem("token", data.accessToken);
+
       // Create user object from JWT payload
       // This is a simplified example - in a real app, you might decode the JWT
       // or make another API call to get user details
@@ -100,12 +100,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         id: "user-id", // Replace with actual user ID
         email,
       };
-      
+
       localStorage.setItem("user", JSON.stringify(user));
-      
-      setToken(data.token);
+
+      setToken(data.accessToken);
       setUser(user);
-      
+
       // Redirect to home page
       router.push("/");
     } catch (err) {

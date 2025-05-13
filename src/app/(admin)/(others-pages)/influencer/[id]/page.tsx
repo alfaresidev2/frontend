@@ -57,7 +57,8 @@ export default function InfluencerDetailsPage() {
   useEffect(() => {
     const fetchInfluencer = async () => {
       try {
-        const response = await api.get(`/admin/influencer/${params.id}`)
+        const response = await api.get(`/user/${params.id}`)
+        console.log(response)
         setInfluencer(response.data)
       } catch (error) {
         console.error("Error fetching influencer:", error)
