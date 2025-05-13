@@ -29,8 +29,8 @@ export default function CategoryPage() {
 
   const fetchCategories = async () => {
     try {
-      const response = await api.get('/admin/category');
-      setCategories(response.data?.data || []);
+      const response = await api.get('/categories');
+      setCategories(response.data?.docs || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
       alert('Failed to load categories');
@@ -46,7 +46,7 @@ export default function CategoryPage() {
       console.log(editingCategory)
       if (editingCategory) {
         // Update existing category
-        await api.put(`/admin/category/${editingCategory._id}`, formData);
+        await api.put(`/categories/${editingCategory._id}`, formData);
         setCategories(categories.map(cat => 
           cat._id === editingCategory._id 
             ? { ...cat, name: formData.name, description: formData.description }
@@ -55,8 +55,8 @@ export default function CategoryPage() {
         setEditingCategory(null);
       } else {
         // Add new category
-        const response = await api.post('/admin/category', formData);
-        setCategories([...categories, response.data.data]);
+        const response = await api.post('/categories', formData);
+        setCategories([...categories, response.data]);
       }
 
     setFormData({ name: "", description: "" });
@@ -88,7 +88,7 @@ export default function CategoryPage() {
 
     setIsLoading(true);
     try {
-      await api.delete(`/admin/category/${categoryId}`);
+      await api.delete(`/categories/${categoryId}`);
       setCategories(categories.filter(cat => cat._id !== categoryId));
     } catch (error) {
       console.error('Error deleting category:', error);
@@ -148,13 +148,13 @@ export default function CategoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {categories.map((category) => (
-                  <tr key={category._id} className="border-b border-gray-200 dark:border-slate-700/50 transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/70">
+                {categories?.map((category) => (
+                  <tr key={category?._id} className="border-b border-gray-200 dark:border-slate-700/50 transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/70">
                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-gray-200">
-                      {category.name}
+                      {category?.name}
                     </td>
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                      {category.description || "-"}
+                      {category?.description || "-"}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">

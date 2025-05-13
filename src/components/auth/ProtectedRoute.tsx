@@ -14,6 +14,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   useEffect(() => {
     if (!loading && !token) {
+      console.log(token)
       router.push("/signin");
     }
   }, [token, loading, router]);
