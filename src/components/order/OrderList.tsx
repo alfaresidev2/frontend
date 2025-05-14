@@ -141,8 +141,10 @@ export default function OrderList({ onView }: { onView: (order: Order) => void }
             ))}
           </tbody>
         </table>
-        {/* Pagination Controls */}
-        {filteredOrders.length > 0 && (
+       
+      </div>
+       {/* Pagination Controls */}
+       {filteredOrders.length > 0 && (
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-4 px-4 pb-4">
             <div className="text-sm text-gray-600 dark:text-gray-400">
               Showing {Math.min((page - 1) * limit + 1, filteredOrders.length)}-
@@ -169,7 +171,6 @@ export default function OrderList({ onView }: { onView: (order: Order) => void }
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 } 
