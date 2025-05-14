@@ -26,6 +26,7 @@ interface Platform {
   _id?: string
   platform: string
   url: string
+  followers: string
 }
 
 interface Influencer {
@@ -87,6 +88,7 @@ interface PlatformInput {
   platformId: string
   platform: string
   url: string
+  followers: string
 }
 
 interface FilePreview {
@@ -227,11 +229,12 @@ export default function InfluencerPage() {
   const [influencers, setInfluencers] = useState<Influencer[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [platforms, setPlatforms] = useState<PlatformInput[]>([{ platformId: "", platform: "", url: "" }])
+  const [platforms, setPlatforms] = useState<PlatformInput[]>([{ platformId: "", platform: "", url: "", followers: "" }])
   const [categories, setCategories] = useState<Category[]>([])
   const { isOpen: isAddModalOpen, openModal: openAddModal, closeModal: closeAddModal } = useModal()
   const { isOpen: isConfirmOpen, openModal: openConfirmModal, closeModal: closeConfirmModal } = useModal()
   const { isOpen: isEmailModalOpen, openModal: openEmailModal, closeModal: closeEmailModal } = useModal()
+  const { isOpen: isBlockModalOpen, openModal: openBlockModal, closeModal: closeBlockModal } = useModal()
   const profilePictureRef = useRef<HTMLInputElement>(null)
 
   const [formData, setFormData] = useState<FormData>({
@@ -296,15 +299,33 @@ export default function InfluencerPage() {
 
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null)
 
+  // Add new state for block confirmation
+  const [blockAction, setBlockAction] = useState<{
+    influencerId: string;
+    currentStatus: boolean;
+  } | null>(null);
+
+  // Add state for search, sort, and pagination
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"name">("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(5);
+  const [total, setTotal] = useState(0);
+
   const handleActionMenuToggle = (influencerId: string | null) => {
     setOpenActionMenu(openActionMenu === influencerId ? null : influencerId)
   }
 
   // Add useEffect to fetch categories
   useEffect(() => {
-    fetchCategories()
-    fetchInfluencers()
-  }, [flag])
+    const fetchAll = async () => {
+      await fetchCategories();
+      await fetchInfluencers();
+    };
+    fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flag, page, limit]);
 
   // Add useEffect for click outside handler
   useEffect(() => {
@@ -337,14 +358,20 @@ export default function InfluencerPage() {
 
   const fetchInfluencers = async () => {
     try {
-      setIsTableLoading(true)
-      const response = await api.get("/user/list-influencers")
-      setInfluencers(response.data.docs)
+      setIsTableLoading(true);
+      const response = await api.get("/user/list-influencers", {
+        params: {
+          page,
+          limit,
+        },
+      });
+      setInfluencers(response.data.docs);
+      setTotal(response.data.totalDocs || response.data.total || 0);
     } catch (error) {
-      console.error("Error fetching influencers:", error)
-      alert("Failed to fetch influencers. Please try again later.")
+      console.error("Error fetching influencers:", error);
+      alert("Failed to fetch influencers. Please try again later.");
     } finally {
-      setIsTableLoading(false)
+      setIsTableLoading(false);
     }
   }
 
@@ -407,7 +434,7 @@ export default function InfluencerPage() {
         setCategoryInput("")
         setSuggestedCategories([])
         setSelectedCategoryIndex(-1)
-      }
+      }   
     } else if (e.key === "Escape") {
       setSuggestedCategories([])
       setSelectedCategoryIndex(-1)
@@ -430,7 +457,7 @@ export default function InfluencerPage() {
   }
 
   const handleAddPlatform = () => {
-    setPlatforms([...platforms, { platformId: "", platform: "", url: "" }])
+    setPlatforms([...platforms, { platformId: "", platform: "", url: "", followers: "" }])
   }
 
   const handleRemovePlatform = (index: number) => {
@@ -471,6 +498,7 @@ export default function InfluencerPage() {
         platformId: platform.platform.toLowerCase(),
         platform: platform.platform,
         url: platform.url,
+        followers: platform.followers || "",
       })),
     )
 
@@ -572,16 +600,18 @@ export default function InfluencerPage() {
 
     // Filter out empty platform entries and transform to required format
     const validPlatforms = platforms
-      .filter((p) => p.platform && p.url)
+      .filter((p) => p.platform && p.url && p.followers)
       .map((p) => ({
         platform: p.platform,
         url: p.url,
+        followers: p.followers,
       }))
 
     if (validPlatforms.length === 0) {
       alert("Please add at least one platform")
       return
     }
+  
 
     // Validate platform URLs
     const urlRegex = /^https?:\/\/.+/
@@ -711,7 +741,7 @@ export default function InfluencerPage() {
     })
     setSelectedCategories([])
     setSelectedTags([])
-    setPlatforms([{ platformId: "", platform: "", url: "" }])
+    setPlatforms([{ platformId: "", platform: "", url: "", followers: "" }])
     setFilePreview({
       photos: [],
       videos: [],
@@ -1120,41 +1150,109 @@ export default function InfluencerPage() {
   }
 
   const handleRowClick = (influencerId: string) => {
-    router.push(`/influencer/${influencerId}`)
+    const params = new URLSearchParams(window.location.search);
+    router.push(`/influencer/${influencerId}?${params.toString()}`);
   }
 
   const [isBlocking, setIsBlocking] = useState<string | null>(null)
 
   // Add handleBlockUnblock function
   const handleBlockUnblock = async (influencerId: string, currentBlockedStatus: boolean) => {
+    setBlockAction({
+      influencerId,
+      currentStatus: currentBlockedStatus
+    });
+    openBlockModal();
+  }
+
+  // Add new function to handle confirmed block/unblock
+  const handleConfirmedBlockUnblock = async () => {
+    if (!blockAction) return;
+
     try {
-      setIsBlocking(influencerId)
-      await api.put(`/user/${influencerId}`, {
-        disabled: !currentBlockedStatus
-      })
+      setIsBlocking(blockAction.influencerId);
+      await api.put(`/user/${blockAction.influencerId}`, {
+        disabled: !blockAction.currentStatus
+      });
 
       // Update the influencer's blocked status in the list
       setInfluencers((prev) =>
         prev.map((inf) =>
-          inf._id === influencerId
+          inf._id === blockAction.influencerId
             ? {
               ...inf,
-              disabled: !currentBlockedStatus,
+              disabled: !blockAction.currentStatus,
             }
             : inf
         ),
-      )
+      );
     } catch (error) {
-      console.error("Error updating block status:", error)
-      alert("Failed to update block status. Please try again.")
+      console.error("Error updating block status:", error);
+      alert("Failed to update block status. Please try again.");
     } finally {
-      setIsBlocking(null)
+      setIsBlocking(null);
+      setBlockAction(null);
+      closeBlockModal();
     }
   }
 
+  // On mount, read query params and set state
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pageParam = parseInt(params.get("page") || "1", 10);
+    const limitParam = parseInt(params.get("limit") || "5", 10);
+    const searchParam = params.get("search") || "";
+    const sortByParam = (params.get("sortBy") as "name") || "name";
+    const sortOrderParam = (params.get("sortOrder") as "asc" | "desc") || "asc";
+    setPage(pageParam);
+    setLimit(limitParam);
+    setSearch(searchParam);
+    setSortBy(sortByParam);
+    setSortOrder(sortOrderParam);
+  }, []);
+
+  // When changing page, limit, search, sort, or sortOrder, update the URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+    if (search) params.set("search", search);
+    if (sortBy) params.set("sortBy", sortBy);
+    if (sortOrder) params.set("sortOrder", sortOrder);
+    window.history.replaceState(null, "", `?${params.toString()}`);
+  }, [page, limit, search, sortBy, sortOrder]);
+
+  const filteredPageInfluencers = influencers
+    .filter(inf =>
+      inf.name.toLowerCase().includes(search.toLowerCase()) ||
+      inf.email.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (sortBy === "name") {
+        if (sortOrder === "asc") {
+          return a.name.localeCompare(b.name);
+        } else {
+          return b.name.localeCompare(a.name);
+        }
+      }
+      return 0;
+    });
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-end">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+        <div className="flex-1 flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Search by name or email"
+            value={search}
+            onChange={e => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="w-full md:w-72 px-3 py-2 text-gray-900 dark:text-gray-200 bg-gray-50 border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800 dark:border-gray-700"
+          />
+        </div>
         <Button
           size="sm"
           onClick={openAddModal}
@@ -1164,6 +1262,18 @@ export default function InfluencerPage() {
         >
           {isLoading ? "Loading..." : "Add Influencer"}
         </Button>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-gray-600 dark:text-gray-400">Rows per page:</span>
+        <select
+          value={limit}
+          onChange={e => { setLimit(Number(e.target.value)); setPage(1); }}
+          className="px-2 py-1 border border-gray-200 rounded-lg dark:bg-slate-800 dark:border-gray-700 text-gray-900 dark:text-gray-200"
+        >
+          {[5, 10, 25, 50, 100].map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
       </div>
 
       {/* Influencers Table */}
@@ -1209,8 +1319,22 @@ export default function InfluencerPage() {
                   <th scope="col" className="px-6 py-4">
                     Profile
                   </th>
-                  <th scope="col" className="px-6 py-4">
+                  <th
+                    scope="col"
+                    className="px-6 py-4 cursor-pointer select-none"
+                    onClick={() => {
+                      if (sortBy === "name") {
+                        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                      } else {
+                        setSortBy("name");
+                        setSortOrder("asc");
+                      }
+                    }}
+                  >
                     Name
+                    {sortBy === "name" && (
+                      <span className="ml-1">{sortOrder === "asc" ? "▲" : "▼"}</span>
+                    )}
                   </th>
                   <th scope="col" className="px-6 py-4">
                     Email
@@ -1233,7 +1357,7 @@ export default function InfluencerPage() {
                 </tr>
               </thead>
               <tbody>
-                {influencers.map((influencer) => (
+                {filteredPageInfluencers.map((influencer) => (
                   <tr
                     key={influencer._id}
                     onClick={() => handleRowClick(influencer._id)}
@@ -1774,6 +1898,16 @@ export default function InfluencerPage() {
                                   className="w-full px-3 py-2 text-gray-900 dark:text-gray-200 bg-gray-50 border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800 dark:border-gray-700"
                                 />
                               </div>
+                              <div className="w-1/4">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  placeholder="Followers"
+                                  value={platform.followers || ""}
+                                  onChange={(e) => handlePlatformChange(index, "followers", e.target.value)}
+                                  className="w-full px-3 py-2 text-gray-900 dark:text-gray-200 bg-gray-50 border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800 dark:border-gray-700"
+                                />
+                              </div>
                               {platforms.length > 1 && (
                                 <Button
                                   size="sm"
@@ -2155,6 +2289,7 @@ export default function InfluencerPage() {
                             >
                               {platform.url}
                             </a>
+                            <span className="font-sm min-w-[80px] flex dark:text-gray-400 "><p className="text-sm text-gray-600 dark:text-gray-400 mx-5">Followers:</p> {platform.followers}</span>
                           </div>
                         ))}
                       </div>
@@ -2286,6 +2421,94 @@ export default function InfluencerPage() {
           </Modal>
         )}
       </AnimatePresence>
+
+      {/* Block/Unblock Confirmation Modal */}
+      <AnimatePresence>
+        {isBlockModalOpen && blockAction && (
+          <Modal isOpen={isBlockModalOpen} onClose={closeBlockModal} className="max-w-[500px] !p-0">
+            <motion.div
+              className="bg-white dark:bg-slate-900/95 backdrop-blur-sm rounded-[20px] border border-gray-200 dark:border-slate-800 p-6 lg:p-8"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{
+                type: "spring",
+                damping: 30,
+                stiffness: 200,
+                duration: 0.5,
+              }}
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-lg font-medium text-gray-900 dark:text-gray-200">
+                    {blockAction.currentStatus ? 'Unblock Influencer' : 'Block Influencer'}
+                  </h4>
+                </div>
+                <div className="py-4">
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Are you sure you want to {blockAction.currentStatus ? 'unblock' : 'block'} this influencer? 
+                    {!blockAction.currentStatus && ' They will not be able to access their account until unblocked.'}
+                  </p>
+                </div>
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={closeBlockModal}
+                    disabled={isBlocking === blockAction.influencerId}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={handleConfirmedBlockUnblock}
+                    disabled={isBlocking === blockAction.influencerId}
+                    className={blockAction.currentStatus ? "" : "bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"}
+                  >
+                    {isBlocking === blockAction.influencerId ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                        {blockAction.currentStatus ? 'Unblocking...' : 'Blocking...'}
+                      </div>
+                    ) : (
+                      blockAction.currentStatus ? 'Unblock' : 'Block'
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </Modal>
+        )}
+      </AnimatePresence>
+
+      {/* Pagination Controls */}
+      {filteredPageInfluencers.length > 0 && (
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-4">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Showing {Math.min((page - 1) * limit + 1, total)}-
+            {Math.min(page * limit, total)} of {total}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(page - 1)}
+              disabled={page === 1}
+              className="px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 disabled:opacity-50"
+            >
+              Prev
+            </button>
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Page {page} of {Math.max(1, Math.ceil(total / limit))}
+            </span>
+            <button
+              onClick={() => setPage(page + 1)}
+              disabled={page * limit >= total}
+              className="px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

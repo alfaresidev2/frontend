@@ -2,13 +2,13 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { CloseIcon } from "@/icons"
-import { Modal } from "@/components/ui/modal"
 import Button from "@/components/ui/button/Button"
 import { useModal } from "@/hooks/useModal"
 import Image from "next/image"
 import api from "@/utils/axios"
-import { motion, AnimatePresence } from "framer-motion"
+import { AnimatePresence, motion } from "framer-motion"
+import { useRouter } from "next/navigation"
+import { Modal } from "../ui/modal"
 
 interface User {
   _id: string
@@ -34,91 +34,59 @@ interface Platform {
 }
 
 
-// Add S3 base URL constant
-// const S3_BASE_URL = "https://influencer-mega-bucket.s3.ap-south-1.amazonaws.com"
-
-// Add these animation variants after the interfaces
-const modalVariants = {
-  hidden: { x: "100%", opacity: 0 },
-  visible: {
-    x: 0,
-    opacity: 1,
-    transition: {
-      type: "spring",
-      damping: 30,
-      stiffness: 200,
-      duration: 0.6,
-    },
-  },
-  exit: {
-    x: "100%",
-    opacity: 0,
-    transition: {
-      type: "spring",
-      damping: 30,
-      stiffness: 200,
-      duration: 0.5,
-    },
-  },
-}
-
-const fadeInUp = {
-  hidden: { y: 20, opacity: 0 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    transition: {
-      type: "spring",
-      damping: 30,
-      stiffness: 200,
-      duration: 0.5,
-    },
-  },
-  exit: {
-    y: -10,
-    opacity: 0,
-    transition: {
-      duration: 0.3,
-    },
-  },
-}
-
-const staggerContainer = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.07,
-      delayChildren: 0.1,
-    },
-  },
-  exit: {
-    opacity: 0,
-    transition: {
-      staggerChildren: 0.05,
-      staggerDirection: -1,
-    },
-  },
-}
-
-
 export default function UserPage() {
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([])
   const [isTableLoading, setIsTableLoading] = useState(false)
   const [isBlocking, setIsBlocking] = useState<string | null>(null)
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  const { isOpen: isDetailsModalOpen, openModal: openDetailsModal, closeModal: closeDetailsModal } = useModal()
+  const { isOpen: isBlockModalOpen, openModal: openBlockModal, closeModal: closeBlockModal } = useModal()
+  const [blockAction, setBlockAction] = useState<{
+    userId: string;
+    currentStatus: boolean;
+  } | null>(null);
+
+  // Pagination and search state
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(5);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState("");
+
+  // On mount, read query params and set state
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pageParam = parseInt(params.get("page") || "1", 10);
+    const limitParam = parseInt(params.get("limit") || "5", 10);
+    const searchParam = params.get("search") || "";
+    setPage(pageParam);
+    setLimit(limitParam);
+    setSearch(searchParam);
+  }, []);
+
+  // When changing page, limit, or search, update the URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+    if (search) params.set("search", search);
+    window.history.replaceState(null, "", `?${params.toString()}`);
+  }, [page, limit, search]);
 
   useEffect(() => {
-    fetchUsers()
-  }, [])
+    fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, limit]);
 
   const fetchUsers = async () => {
     try {
       setIsTableLoading(true)
-      // Temporarily using influencer endpoint for testing
-      const response = await api.get("/user/list-users")
+      const response = await api.get("/user/list-users", {
+        params: {
+          page,
+          limit,
+        },
+      });
       setUsers(response.data.docs)
+      setTotal(response.data.totalDocs || response.data.total || 0)
     } catch (error) {
       console.error("Error fetching users:", error)
       alert("Failed to fetch users. Please try again later.")
@@ -127,39 +95,83 @@ export default function UserPage() {
     }
   }
 
+  // Filter and sort users on the current page (frontend search)
+  const filteredPageUsers = users.filter(user =>
+    user.name.toLowerCase().includes(search.toLowerCase()) ||
+    user.email.toLowerCase().includes(search.toLowerCase())
+  );
+
   const handleRowClick = (user: User) => {
-    setSelectedUser(user)
-    openDetailsModal()
+    const params = new URLSearchParams(window.location.search);
+    router.push(`/user/${user._id}?${params.toString()}`)
   }
 
   const handleBlockUnblock = async (userId: string, currentBlockedStatus: boolean) => {
+    setBlockAction({
+      userId,
+      currentStatus: currentBlockedStatus
+    });
+    openBlockModal();
+  }
+  const handleConfirmedBlockUnblock = async () => {
+    if (!blockAction) return;
+
     try {
-      setIsBlocking(userId)
-      await api.put(`/user/${userId}`, {
-        disabled: !currentBlockedStatus
+      setIsBlocking(blockAction.userId)
+      await api.put(`/user/${blockAction.userId}`, {
+        disabled: !blockAction.currentStatus
       })
-      
+
       // Update the user's blocked status in the list
       setUsers((prev) =>
         prev.map((user) =>
-          user._id === userId
+          user._id === blockAction.userId
             ? {
-                ...user,
-                disabled: !currentBlockedStatus,
-              }
+              ...user,
+              disabled: !blockAction.currentStatus,
+            }
             : user
         ),
       )
     } catch (error) {
-      console.error("Error updating block status:", error)
-      alert("Failed to update block status. Please try again.")
+      console.error("Error updating block status:", error);
+      alert("Failed to update block status. Please try again.");
     } finally {
-      setIsBlocking(null)
+      setIsBlocking(null);
+      setBlockAction(null);
+      closeBlockModal();
     }
   }
 
   return (
     <div className="space-y-6">
+      {/* Search and Add User (if needed) */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+        <div className="flex-1 flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Search by name or email"
+            value={search}
+            onChange={e => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="w-full md:w-72 px-3 py-2 text-gray-900 dark:text-gray-200 bg-gray-50 border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800 dark:border-gray-700"
+          />
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-gray-600 dark:text-gray-400">Rows per page:</span>
+        <select
+          value={limit}
+          onChange={e => { setLimit(Number(e.target.value)); setPage(1); }}
+          className="px-2 py-1 border border-gray-200 rounded-lg dark:bg-slate-800 dark:border-gray-700 text-gray-900 dark:text-gray-200"
+        >
+          {[5, 10, 25, 50, 100].map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      </div>
       {/* Users Table */}
       <div className="p-6 bg-white dark:bg-slate-900/80 backdrop-blur-sm rounded-[20px] border border-gray-200 dark:border-slate-800 shadow-sm">
         {isTableLoading ? (
@@ -172,7 +184,7 @@ export default function UserPage() {
           >
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
           </motion.div>
-        ) : users.length === 0 ? (
+        ) : filteredPageUsers.length === 0 ? (
           <motion.div
             className="flex flex-col items-center justify-center py-12 text-center"
             initial={{ opacity: 0, y: 10 }}
@@ -212,13 +224,12 @@ export default function UserPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
+                {filteredPageUsers.map((user) => (
                   <tr
                     key={user._id}
                     onClick={() => handleRowClick(user)}
-                    className={`border-b border-gray-200 dark:border-slate-700/50 transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/70 cursor-pointer ${
-                      user.disabled ? 'opacity-75' : ''
-                    }`}
+                    className={`border-b border-gray-200 dark:border-slate-700/50 transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/70 cursor-pointer ${user.disabled ? 'opacity-75' : ''
+                      }`}
                   >
                     <td className="px-6 py-4">
                       {user.profileImage && (
@@ -237,11 +248,10 @@ export default function UserPage() {
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{user.phoneNumber}</td>
                     <td className="px-6 py-4">
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          user.disabled
-                            ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/40'
-                            : 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/40'
-                        }`}
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${user.disabled
+                          ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/40'
+                          : 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/40'
+                          }`}
                       >
                         {user.disabled ? 'Blocked' : 'Active'}
                       </span>
@@ -253,11 +263,10 @@ export default function UserPage() {
                           variant="outline"
                           onClick={() => handleBlockUnblock(user._id, user.disabled)}
                           disabled={isTableLoading || isBlocking === user._id}
-                          className={`transform transition-transform hover:scale-105 active:scale-95 border-gray-300 dark:border-slate-700 ${
-                            user.disabled
-                              ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
-                              : 'text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300'
-                          }`}
+                          className={`transform transition-transform hover:scale-105 active:scale-95 border-gray-300 dark:border-slate-700 ${user.disabled
+                            ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
+                            : 'text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300'
+                            }`}
                         >
                           {isBlocking === user._id ? (
                             <div className="flex items-center gap-2">
@@ -279,103 +288,86 @@ export default function UserPage() {
           </div>
         )}
       </div>
-
-      {/* User Details Modal */}
+      {/* Pagination Controls */}
+      {filteredPageUsers.length > 0 && (
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-4">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Showing {Math.min((page - 1) * limit + 1, total)}-
+            {Math.min(page * limit, total)} of {total}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(page - 1)}
+              disabled={page === 1}
+              className="px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 disabled:opacity-50"
+            >
+              Prev
+            </button>
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Page {page} of {Math.max(1, Math.ceil(total / limit))}
+            </span>
+            <button
+              onClick={() => setPage(page + 1)}
+              disabled={page * limit >= total}
+              className="px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
       <AnimatePresence>
-        {isDetailsModalOpen && selectedUser && (
-          <Modal
-            isOpen={isDetailsModalOpen}
-            onClose={closeDetailsModal}
-            className="max-w-[800px] !fixed !right-0 !top-0 !bottom-0 !translate-x-0 !rounded-l-[20px] !rounded-r-none !p-0 dark:border-l dark:border-slate-700"
-          >
+        {isBlockModalOpen && blockAction && (
+          <Modal isOpen={isBlockModalOpen} onClose={closeBlockModal} className="max-w-[500px] !p-0">
             <motion.div
-              className="h-full bg-white dark:bg-slate-900/95 backdrop-blur-sm"
-              variants={modalVariants}
-              initial="hidden"
-              animate="visible"
-              exit="hidden"
+              className="bg-white dark:bg-slate-900/95 backdrop-blur-sm rounded-[20px] border border-gray-200 dark:border-slate-800 p-6 lg:p-8"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
               transition={{
+                type: "spring",
+                damping: 30,
+                stiffness: 200,
                 duration: 0.5,
               }}
             >
-              <div className="h-full flex flex-col">
-                <motion.div
-                  className="flex items-center justify-between p-6 lg:p-8 border-b border-gray-200 dark:border-slate-700"
-                  variants={fadeInUp}
-                >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
                   <h4 className="text-lg font-medium text-gray-900 dark:text-gray-200">
-                    User Details
+                    {blockAction.currentStatus ? 'Unblock User' : 'Block User'}
                   </h4>
-                  <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                    <CloseIcon
-                      className="w-4 h-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer"
-                      onClick={closeDetailsModal}
-                    />
-                  </motion.div>
-                </motion.div>
-
-                <motion.div
-                  className="flex-1 overflow-y-auto p-5 lg:p-6 max-h-[calc(100vh-90px)]"
-                  variants={staggerContainer}
-                  initial="hidden"
-                  animate="visible"
-                >
-                  <div className="space-y-6">
-                    {/* Basic Information */}
-                    <div>
-                      <h5 className="font-medium text-gray-900 dark:text-gray-200 mb-3">Basic Information</h5>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-gray-600 dark:text-gray-400">Name</p>
-                          <p className="font-medium text-gray-900 dark:text-gray-200">{selectedUser.name}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600 dark:text-gray-400">Email</p>
-                          <p className="font-medium text-gray-900 dark:text-gray-200">{selectedUser.email}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600 dark:text-gray-400">Phone Number</p>
-                          <p className="font-medium text-gray-900 dark:text-gray-200">
-                            {selectedUser.phoneNumber}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600 dark:text-gray-400">Gender</p>
-                          <p className="font-medium text-gray-900 dark:text-gray-200 capitalize">
-                            {selectedUser.gender}
-                          </p>
-                        </div>
+                </div>
+                <div className="py-4">
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Are you sure you want to {blockAction.currentStatus ? 'unblock' : 'block'} this user?
+                    {!blockAction.currentStatus && ' They will not be able to access their account until unblocked.'}
+                  </p>
+                </div>
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={closeBlockModal}
+                    disabled={isBlocking === blockAction.userId}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={handleConfirmedBlockUnblock}
+                    disabled={isBlocking === blockAction.userId}
+                    className={blockAction.currentStatus ? "" : "bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"}
+                  >
+                    {isBlocking === blockAction.userId ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                        {blockAction.currentStatus ? 'Unblocking...' : 'Blocking...'}
                       </div>
-                    </div>
-
-                    {/* Tags */}
-                    {selectedUser.tags && selectedUser.tags.length > 0 && (
-                      <div>
-                        <h5 className="font-medium text-gray-900 dark:text-gray-200 mb-3">Tags</h5>
-                        <div className="flex flex-wrap gap-2">
-                          {selectedUser.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="px-2 py-1 text-xs font-medium text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/40 rounded-full"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+                    ) : (
+                      blockAction.currentStatus ? 'Unblock' : 'Block'
                     )}
-
-                    {/* Bio */}
-                    {selectedUser.bio && (
-                      <div>
-                        <h5 className="font-medium text-gray-900 dark:text-gray-200 mb-3">Bio</h5>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{selectedUser.bio}</p>
-                      </div>
-                    )}
-
-
-                  </div>
-                </motion.div>
+                  </Button>
+                </div>
               </div>
             </motion.div>
           </Modal>
