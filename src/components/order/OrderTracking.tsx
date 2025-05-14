@@ -36,8 +36,7 @@ export default function OrderTracking({ steps, influencer }: OrderTrackingProps)
             const isActive = idx === activeIdx;
             const isCompleted = step.completed;
             const isLast = idx === steps.length - 1;
-            // Line color logic
-            const lineColor = isCompleted || isActive ? "bg-blue-500" : "bg-gray-300 dark:bg-gray-700";
+            
             return (
               <li key={idx} className="flex items-start relative min-h-[56px]">
                 {/* Vertical line */}
