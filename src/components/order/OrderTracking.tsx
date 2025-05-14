@@ -20,7 +20,7 @@ export default function OrderTracking({ steps, influencer }: OrderTrackingProps)
   return (
     <div className="py-4">
       <div className="font-semibold text-lg mb-4 flex items-center gap-3">
-        <span>Tracking</span>
+        <span className="dark:text-white">Tracking</span>
         {influencer && (
           <span className="flex items-center gap-2 ml-4 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/40">
             <span className="relative w-7 h-7 rounded-full overflow-hidden border-2 border-blue-200 dark:border-blue-700 shadow">
