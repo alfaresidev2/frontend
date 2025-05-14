@@ -39,16 +39,20 @@ const navItems: NavItem[] = [
     path: "/influencer",
   },
   {
+    icon: <FolderIcon />,
+    name: "Category",
+    path: "/category",
+  },
+  {
     icon: <UserCircleIcon />,
     name: "User",
     path: "/user",
   },
   {
-    icon: <FolderIcon />,
-    name: "Category",
-    path: "/category",
-  },
-
+    icon: <BoxCubeIcon />,
+    name: "Order",
+    path: "/order",
+  }
   // {
   //   icon: <UserCircleIcon />,
   //   name: "User Profile",
