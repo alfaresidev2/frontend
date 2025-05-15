@@ -45,7 +45,8 @@ export default function UserDetailsPage() {
     const fetchUser = async () => {
       try {
         const response = await api.get(`/user/${params.id}`)
-        setUser(response.data)
+        console.log(response.data.data)
+        setUser(response.data.data)
       } catch (error) {
         console.error("Error fetching user:", error)
         alert("Failed to fetch user details")
@@ -59,7 +60,7 @@ export default function UserDetailsPage() {
   }, [params.id])
 
   function splitPhoneNumber(phone: string) {
-    const match = phone.match(/^(\+\d{1,3})[\s-]?(.*)$/);
+    const match = phone?.match(/^(\+\d{1,3})[\s-]?(.*)$/);
     if (match) {
       return { code: match[1], number: match[2] };
     }
@@ -112,8 +113,8 @@ export default function UserDetailsPage() {
               <div className="flex items-center gap-3 bg-gray-100 dark:bg-slate-800 rounded-xl px-4 py-2">
                 <EnvelopeIcon className="w-6 h-6 text-blue-500 dark:text-blue-400" />
                 <span className="text-gray-700 dark:text-gray-200 text-sm">
-                  <span className="font-semibold tracking-wide mr-1">{phoneParts.code}</span>
-                  <span>{phoneParts.number}</span>
+                  {user.phoneNumber && <><span className="font-semibold tracking-wide mr-1">{phoneParts?.code}</span>
+                    <span>{phoneParts?.number}</span></>}
                 </span>
               </div>
             </div>
@@ -142,7 +143,7 @@ export default function UserDetailsPage() {
                 </div>
                 <div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Phone Number</div>
-                  <div className="font-medium text-gray-900 dark:text-gray-100">({phoneParts.code}) {phoneParts.number}</div>
+                  {user.phoneNumber && <div className="font-medium text-gray-900 dark:text-gray-100">({phoneParts?.code}) {phoneParts?.number}</div>}
                 </div>
                 <div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Joined</div>

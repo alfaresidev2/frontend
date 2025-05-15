@@ -61,7 +61,7 @@ export default function CategoryPage() {
   const fetchCategories = async () => {
     try {
       const response = await api.get('/categories');
-      setCategories(response.data?.docs || []);
+      setCategories(response.data?.data?.docs || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
       alert('Failed to load categories');
@@ -82,7 +82,7 @@ export default function CategoryPage() {
         },
       });
 
-      const { url, key } = response.data;
+      const { url, key } = response.data.data;
 
       // Upload file to the URL
       await fetch(url, {
@@ -165,7 +165,7 @@ export default function CategoryPage() {
       } else {
         // Add new category
         const response = await api.post('/categories', formData);
-        setCategories([...categories, response.data]);
+        setCategories([...categories, response.data.data]);
       }
 
       setFormData({ name: "", description: "", imageUrl: "" });
