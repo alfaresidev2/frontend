@@ -61,7 +61,7 @@ export default function InfluencerDetailsPage() {
       try {
         const response = await api.get(`/user/${params.id}`)
         console.log(response)
-        setInfluencer(response.data)
+        setInfluencer(response.data.data)
       } catch (error) {
         console.error("Error fetching influencer:", error)
         alert("Failed to fetch influencer details")

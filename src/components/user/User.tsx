@@ -85,8 +85,8 @@ export default function UserPage() {
           limit,
         },
       });
-      setUsers(response.data.docs)
-      setTotal(response.data.totalDocs || response.data.total || 0)
+      setUsers(response.data.data.docs)
+      setTotal(response.data.data.totalDocs || response.data.data.total || 0)
     } catch (error) {
       console.error("Error fetching users:", error)
       alert("Failed to fetch users. Please try again later.")

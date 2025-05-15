@@ -380,8 +380,8 @@ export default function InfluencerPage() {
           limit,
         },
       });
-      setInfluencers(response.data.docs);
-      setTotal(response.data.totalDocs || response.data.total || 0);
+      setInfluencers(response.data.data.docs);
+      setTotal(response.data.data.totalDocs || response.data.data.total || 0);
     } catch (error) {
       console.error("Error fetching influencers:", error);
       alert("Failed to fetch influencers. Please try again later.");
@@ -393,7 +393,7 @@ export default function InfluencerPage() {
   const fetchCategories = async () => {
     try {
       const response = await api.get("/categories")
-      setCategories(response.data.docs)
+      setCategories(response.data.data.docs)
     } catch (error) {
       console.error("Error fetching categories:", error)
       alert("Failed to fetch categories. Please try again later.")
@@ -688,12 +688,12 @@ export default function InfluencerPage() {
         // Update existing influencer
         const response = await api.put(`/user/${editingInfluencer._id}`, dataToSend)
         setFlag(!flag)
-        setCurrentInfluencer(response.data)
+        setCurrentInfluencer(response.data.data)
       } else {
         // Add new influencer
         const response = await api.post("/user/influencer", dataToSend)
         setFlag(!flag)
-        setCurrentInfluencer(response.data)
+        setCurrentInfluencer(response.data.data)
         openEmailModal()
       }
 
@@ -829,7 +829,7 @@ export default function InfluencerPage() {
         },
       })
 
-      const { url, key } = response.data
+      const { url, key } = response.data.data
       console.log(response);
 
       // Upload file to the URL
