@@ -97,8 +97,8 @@ export default function UserPage() {
 
   // Filter and sort users on the current page (frontend search)
   const filteredPageUsers = users.filter(user =>
-    user.name.toLowerCase().includes(search.toLowerCase()) ||
-    user.email.toLowerCase().includes(search.toLowerCase())
+    user?.name?.toLowerCase().includes(search.toLowerCase()) ||
+    user?.email?.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleRowClick = (user: User) => {
@@ -236,7 +236,7 @@ export default function UserPage() {
                         <div className="relative w-10 h-10 rounded-full overflow-hidden">
                           <Image
                             src={user.profileImage || "/placeholder.svg"}
-                            alt={user.name}
+                            alt={user.name || "User Profile"}
                             fill
                             className="object-cover"
                           />
