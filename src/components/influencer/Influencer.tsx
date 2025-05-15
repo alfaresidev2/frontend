@@ -224,6 +224,19 @@ interface CategoryOption {
   isSelected: boolean
 }
 
+// Add shimmer CSS
+const shimmerStyle = {
+  background: 'linear-gradient(90deg, #f3f3f3 25%, #e0e0e0 37%, #f3f3f3 63%)',
+  backgroundSize: '400% 100%',
+  animation: 'shimmer 1.4s ease infinite',
+};
+
+const shimmerKeyframes = `
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}`;
+
 export default function InfluencerPage() {
   const router = useRouter()
   const [influencers, setInfluencers] = useState<Influencer[]>([])
@@ -313,21 +326,22 @@ export default function InfluencerPage() {
   const [limit, setLimit] = useState(5);
   const [total, setTotal] = useState(0);
 
+  const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({});
+  const [videoLoading, setVideoLoading] = useState<{ [key: string]: boolean }>({});
+
   const handleActionMenuToggle = (influencerId: string | null) => {
     setOpenActionMenu(openActionMenu === influencerId ? null : influencerId)
   }
 
-  // Add useEffect to fetch categories
+  // Fetch categories only once on mount
   useEffect(() => {
-    const fetchAll = async () => {
-      await fetchCategories();
-      await fetchInfluencers();
-    };
-    fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flag, page, limit]);
+    fetchCategories();
+  }, [flag]);
 
-  // Add useEffect for click outside handler
+  useEffect(() => {
+    fetchInfluencers();
+  }, [flag, page, limit, search]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement
@@ -359,8 +373,9 @@ export default function InfluencerPage() {
   const fetchInfluencers = async () => {
     try {
       setIsTableLoading(true);
-      const response = await api.get("/user/list-influencers", {
+      const response = await api.get("https://api.mashaheer.co/api/v1/user/influencer-search", {
         params: {
+          search,
           page,
           limit,
         },
@@ -1222,29 +1237,14 @@ export default function InfluencerPage() {
     window.history.replaceState(null, "", `?${params.toString()}`);
   }, [page, limit, search, sortBy, sortOrder]);
 
-  const filteredPageInfluencers = influencers
-    .filter(inf =>
-      inf.name.toLowerCase().includes(search.toLowerCase()) ||
-      inf.email.toLowerCase().includes(search.toLowerCase())
-    )
-    .sort((a, b) => {
-      if (sortBy === "name") {
-        if (sortOrder === "asc") {
-          return a.name.localeCompare(b.name);
-        } else {
-          return b.name.localeCompare(a.name);
-        }
-      }
-      return 0;
-    });
-
   return (
     <div className="space-y-6">
+      <style>{shimmerKeyframes}</style>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
         <div className="flex-1 flex items-center gap-2">
           <input
             type="text"
-            placeholder="Search by name or email"
+            placeholder="Search by name"
             value={search}
             onChange={e => {
               setSearch(e.target.value);
@@ -1357,7 +1357,7 @@ export default function InfluencerPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredPageInfluencers.map((influencer) => (
+                {influencers.map((influencer) => (
                   <tr
                     key={influencer._id}
                     onClick={() => handleRowClick(influencer._id)}
@@ -1367,11 +1367,17 @@ export default function InfluencerPage() {
                     <td className="px-6 py-4">
                       {influencer.profileImage && (
                         <div className="relative w-10 h-10 rounded-full overflow-hidden">
+                          {imageLoading[influencer._id + '-profile'] !== false && (
+                            <div style={shimmerStyle} className="absolute inset-0 w-full h-full" />
+                          )}
                           <Image
                             src={influencer.profileImage || "/placeholder.svg"}
                             alt={influencer.name}
                             fill
                             className="object-cover"
+                            onLoadingComplete={() => setImageLoading((prev) => ({ ...prev, [influencer._id + '-profile']: false }))}
+                            onLoad={() => setImageLoading((prev) => ({ ...prev, [influencer._id + '-profile']: false }))}
+                            style={imageLoading[influencer._id + '-profile'] !== false ? { visibility: 'hidden' } : {}}
                           />
                         </div>
                       )}
@@ -1952,11 +1958,17 @@ export default function InfluencerPage() {
                             {filePreview.photos.map((photo) => (
                               <div key={photo.id} className="relative group aspect-square">
                                 <div className="absolute inset-0 rounded-lg overflow-hidden bg-gray-50">
+                                  {imageLoading[photo.id] !== false && (
+                                    <div style={shimmerStyle} className="absolute inset-0 w-full h-full" />
+                                  )}
                                   <Image
                                     src={photo.url || "/placeholder.svg"}
                                     alt="Preview"
                                     fill
                                     className="object-cover"
+                                    onLoadingComplete={() => setImageLoading((prev) => ({ ...prev, [photo.id]: false }))}
+                                    onLoad={() => setImageLoading((prev) => ({ ...prev, [photo.id]: false }))}
+                                    style={imageLoading[photo.id] !== false ? { visibility: 'hidden' } : {}}
                                   />
                                 </div>
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -2026,10 +2038,15 @@ export default function InfluencerPage() {
                             {filePreview.videos.map((video) => (
                               <div key={video.id} className="relative group aspect-square">
                                 <div className="absolute inset-0 rounded-lg overflow-hidden bg-gray-50">
+                                  {videoLoading[video.id] !== false && (
+                                    <div style={shimmerStyle} className="absolute inset-0 w-full h-full z-10" />
+                                  )}
                                   <video
                                     src={video.url}
                                     className="absolute inset-0 w-full h-full object-cover"
                                     controls
+                                    onLoadedData={() => setVideoLoading((prev) => ({ ...prev, [video.id]: false }))}
+                                    style={videoLoading[video.id] !== false ? { visibility: 'hidden' } : {}}
                                   />
                                 </div>
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -2307,11 +2324,17 @@ export default function InfluencerPage() {
                                   key={photo.id}
                                   className="relative aspect-square rounded-lg overflow-hidden bg-gray-50"
                                 >
+                                  {imageLoading[photo.id + '-confirm'] !== false && (
+                                    <div style={shimmerStyle} className="absolute inset-0 w-full h-full" />
+                                  )}
                                   <Image
                                     src={photo.url || "/placeholder.svg"}
                                     alt="Preview"
                                     fill
                                     className="object-cover"
+                                    onLoadingComplete={() => setImageLoading((prev) => ({ ...prev, [photo.id + '-confirm']: false }))}
+                                    onLoad={() => setImageLoading((prev) => ({ ...prev, [photo.id + '-confirm']: false }))}
+                                    style={imageLoading[photo.id + '-confirm'] !== false ? { visibility: 'hidden' } : {}}
                                   />
                                 </div>
                               ))}
@@ -2328,10 +2351,15 @@ export default function InfluencerPage() {
                                   key={video.id}
                                   className="relative aspect-video rounded-lg overflow-hidden bg-gray-50"
                                 >
+                                  {videoLoading[video.id + '-confirm'] !== false && (
+                                    <div style={shimmerStyle} className="absolute inset-0 w-full h-full z-10" />
+                                  )}
                                   <video
                                     src={video.url}
                                     className="absolute inset-0 w-full h-full object-cover"
                                     controls
+                                    onLoadedData={() => setVideoLoading((prev) => ({ ...prev, [video.id + '-confirm']: false }))}
+                                    style={videoLoading[video.id + '-confirm'] !== false ? { visibility: 'hidden' } : {}}
                                   />
                                 </div>
                               ))}
@@ -2482,7 +2510,7 @@ export default function InfluencerPage() {
       </AnimatePresence>
 
       {/* Pagination Controls */}
-      {filteredPageInfluencers.length > 0 && (
+      {influencers.length > 0 && (
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-4">
           <div className="text-sm text-gray-600 dark:text-gray-400">
             Showing {Math.min((page - 1) * limit + 1, total)}-
