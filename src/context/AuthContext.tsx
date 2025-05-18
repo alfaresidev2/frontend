@@ -84,7 +84,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       const res = await response.json();
-      console.log(res)
 
       if (!response.ok) {
         alert("Invalid credentials");
