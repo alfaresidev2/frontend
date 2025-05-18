@@ -83,16 +83,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         body: JSON.stringify({ username: email, password }),
       });
 
-      const data = await response.json();
+      const res = await response.json();
+      console.log(res)
 
       if (!response.ok) {
         alert("Invalid credentials");
-        throw new Error(data.message || "Login failed");
+        throw new Error(res.data.message || "Login failed");
       }
 
       // Save token to cookies (for server-side auth) and localStorage (for client-side auth)
-      Cookies.set('token', data.accessToken, { expires: 7, path: '/' }); // 7 days expiry
-      localStorage.setItem("token", data.daccessToken);
+      Cookies.set('token', res.data.accessToken, { expires: 7, path: '/' }); // 7 days expiry
+      localStorage.setItem("token", res.data.accessToken);
 
       // Create user object from JWT payload
       // This is a simplified example - in a real app, you might decode the JWT
@@ -104,7 +105,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       localStorage.setItem("user", JSON.stringify(user));
 
-      setToken(data.accessToken);
+      setToken(res.data.accessToken);
       setUser(user);
 
       // Redirect to home page
