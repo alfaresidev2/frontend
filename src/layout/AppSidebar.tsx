@@ -13,6 +13,7 @@ import {
   FolderIcon,
   GroupIcon,
   UserCircleIcon,
+  HandshakeIcon,
 } from "../icons/index";
 
 type NavItem = {
@@ -42,6 +43,11 @@ const navItems: NavItem[] = [
     icon: <FolderIcon />,
     name: "Category",
     path: "/category",
+  },
+  {
+    icon: <HandshakeIcon />,
+    name: "Collaboration",
+    path: "/collaboration",
   },
   {
     icon: <UserCircleIcon />,
