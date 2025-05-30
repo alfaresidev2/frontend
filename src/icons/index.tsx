@@ -52,7 +52,7 @@ import ChatIcon from "./chat.svg";
 import MoreDotIcon from "./more-dot.svg";
 import BellIcon from "./bell.svg";
 
-export const HandshakeIcon: React.FC<IconProps> = ({ className = "", ...props }) => (
+export const HandshakeIcon = ({ className = "", ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
