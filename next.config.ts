@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
     return config;
   },
   images: {
-    domains: ['influencer-mega-bucket.s3.ap-south-1.amazonaws.com','example.com'],
+    domains: ['influencer-mega-bucket.s3.ap-south-1.amazonaws.com','example.com','picsum.photos'],
   },
 };
 

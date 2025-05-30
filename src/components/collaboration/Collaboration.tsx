@@ -7,7 +7,7 @@ import Button from "@/components/ui/button/Button";
 import { useModal } from "@/hooks/useModal";
 import api from "@/utils/axios";
 import Image from "next/image";
-import Select from "react-select";
+import Select, { MultiValue } from "react-select";
 
 interface Influencer {
   _id: string;
@@ -211,7 +211,7 @@ export default function CollaborationPage() {
     try {
       if (editingCollaboration) {
         // Update existing collaboration
-        const response = await api.put(`/collaboration/${editingCollaboration._id}`, formData);
+        await api.put(`/collaboration/${editingCollaboration._id}`, formData);
       
         setFlag(!flag);
         setEditingCollaboration(null);
@@ -238,14 +238,14 @@ export default function CollaborationPage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleInfluencerChange = (selectedOptions: any) => {
+  const handleInfluencerChange = (selectedOptions: MultiValue<{ value: string; label: React.ReactNode }>) => {
     if (selectedOptions.length > 2) {
       alert('You can only select two influencers');
       return;
     }
     setFormData(prev => ({
       ...prev,
-      users: selectedOptions.map((option: any) => option.value)
+      users: selectedOptions.map((option) => option.value)
     }));
   };
 
