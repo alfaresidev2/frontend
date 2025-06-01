@@ -122,12 +122,12 @@ export default function CollaborationDetailsPage() {
 
                     <div className="md:w-1/3 flex-shrink-0 bg-gradient-to-b from-[#455eff]/10 to-white dark:from-slate-900 dark:to-slate-800 p-8 flex flex-col items-center justify-start border-l border-blue-100 dark:border-slate-800">
                         {collaboration.imageUrl && (
-                            <div className="relative w-full aspect-square rounded-lg overflow-hidden shadow-md border border-gray-200 dark:border-slate-700">
+                            <div className="relative w-[300px] h-[200px] rounded-lg overflow-hidden shadow-md border border-gray-200 dark:border-slate-700">
                                 <Image
                                     src={collaboration.imageUrl}
                                     alt={collaboration.title}
                                     fill
-                                    className="object-cover"
+                                    className="object-cover "
                                 />
                             </div>
                         )}
