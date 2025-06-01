@@ -84,8 +84,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       const res = await response.json();
-
-      if (!response.ok) {
+      console.log(res);
+      if (!res.status) {
         alert("Invalid credentials");
         throw new Error(res.data.message || "Login failed");
       }
@@ -103,12 +103,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       };
 
       localStorage.setItem("user", JSON.stringify(user));
-
+      
       setToken(res.data.accessToken);
       setUser(user);
 
       // Redirect to home page
-      router.push("/");
+      
     } catch (err) {
       console.error("Login error:", err);
       setError(err instanceof Error ? err.message : "An error occurred");

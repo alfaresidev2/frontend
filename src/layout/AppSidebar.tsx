@@ -41,6 +41,11 @@ const navItems: NavItem[] = [
     path: "/influencer",
   },
   {
+    icon: <UserCircleIcon />,
+    name: "User",
+    path: "/user",
+  },
+  {
     icon: <FolderIcon />,
     name: "Category",
     path: "/category",
@@ -54,11 +59,6 @@ const navItems: NavItem[] = [
     icon: <LightningIcon />,
     name: "Flash Deal",
     path: "/flash-deal",
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "User",
-    path: "/user",
   },
   {
     icon: <BoxCubeIcon />,

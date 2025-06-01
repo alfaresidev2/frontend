@@ -202,8 +202,8 @@ export default function CollaborationPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title.trim() || formData.users.length !== 2) {
-      alert('Please select exactly two influencers and provide a title');
+    if (!formData.title.trim() || formData.users.length < 2) {
+      alert('Please select atleast two influencers and provide a title');
       return;
     }
 
@@ -239,10 +239,10 @@ export default function CollaborationPage() {
   };
 
   const handleInfluencerChange = (selectedOptions: MultiValue<{ value: string; label: React.ReactNode }>) => {
-    if (selectedOptions.length > 2) {
-      alert('You can only select two influencers');
-      return;
-    }
+    // if (selectedOptions.length > 2) {
+    //   alert('You can only select two influencers');
+    //   return;
+    // }
     setFormData(prev => ({
       ...prev,
       users: selectedOptions.map((option) => option.value)
@@ -285,8 +285,8 @@ export default function CollaborationPage() {
   };
 
   const handleButtonClick = () => {
-    if (!formData.title.trim() || formData.users.length !== 2) {
-      alert('Please select exactly two influencers and provide a title');
+    if (!formData.title.trim() || formData.users.length < 2) {
+      alert('Please select atleast two influencers and provide a title');
       return;
     }
     handleSubmit({ preventDefault: () => {} } as React.FormEvent);
@@ -452,7 +452,7 @@ export default function CollaborationPage() {
             {/* Influencer Selection */}
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
-                Select Influencers (Select 2)
+                Select Influencers (Atleast 2)
               </label>
               <Select
                 isMulti
@@ -461,7 +461,7 @@ export default function CollaborationPage() {
                 onChange={handleInfluencerChange}
                 className="react-select-container"
                 classNamePrefix="react-select"
-                placeholder="Select two influencers..."
+                placeholder="Select atleast two influencers..."
                 isDisabled={isLoading}
                 maxMenuHeight={200}
               />
