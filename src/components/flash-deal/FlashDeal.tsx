@@ -99,6 +99,11 @@ export default function FlashDealPage() {
   const { isOpen: isAddModalOpen, openModal: openAddModal, closeModal: closeAddModal } = useModal();
   const [darkMode, setDarkMode] = useState(false);
 
+  // Add state for pagination
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(5);
+  const [total, setTotal] = useState(0);
+
   const [formData, setFormData] = useState<FormData>({
     serviceId: "",
     title: "",
@@ -120,15 +125,18 @@ export default function FlashDealPage() {
   const fetchFlashDeals = useCallback(async () => {
     try {
       setIsTableLoading(true);
-      const response = await api.get("/flash-deal");
+      const response = await api.get("/flash-deal", {
+        params: { page, limit }
+      });
       setFlashDeals(response.data?.data?.docs || []);
+      setTotal(response.data?.data?.totalDocs || response.data?.data?.total || 0);
     } catch (error) {
       console.error("Error fetching flash deals:", error);
       alert("Failed to fetch flash deals. Please try again later.");
     } finally {
       setIsTableLoading(false);
     }
-  }, []);
+  }, [page, limit]);
 
   const theme = localStorage.getItem("theme");
 
@@ -147,8 +155,11 @@ export default function FlashDealPage() {
 
   useEffect(() => {
     fetchFlashDeals();
+  }, [fetchFlashDeals, flag]);
+
+  useEffect(() => {
     fetchInfluencers();
-  }, [fetchFlashDeals, fetchInfluencers, flag]);
+  }, [fetchInfluencers, flag]);
 
   useEffect(() => {
     setDarkMode(theme === "dark" ? true : false);
@@ -167,6 +178,23 @@ export default function FlashDealPage() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [openActionMenu]);
+
+  // Add state syncing with URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pageParam = parseInt(params.get("page") || "1", 10);
+    const limitParam = parseInt(params.get("limit") || "5", 10);
+
+    if (pageParam !== page) setPage(pageParam);
+    if (limitParam !== limit) setLimit(limitParam);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+    window.history.replaceState(null, "", `?${params.toString()}`);
+  }, [page, limit]);
 
   const handleInfluencerChange = (selected: Influencer | null) => {
     setSelectedInfluencer(selected);
@@ -453,6 +481,20 @@ export default function FlashDealPage() {
         </Button>
       </div>
 
+      {/* Add items per page control */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-gray-600 dark:text-gray-400">Flash Deals per page:</span>
+        <select
+          value={limit}
+          onChange={e => { setLimit(Number(e.target.value)); setPage(1); }}
+          className="px-2 py-1 border border-gray-200 rounded-lg dark:bg-slate-800 dark:border-gray-700 text-gray-900 dark:text-gray-200"
+        >
+          {[5, 10, 25, 50, 100].map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Flash Deals Table */}
       <div className="p-6 bg-white dark:bg-slate-900/80 backdrop-blur-sm rounded-[20px] border border-gray-200 dark:border-slate-800 shadow-sm">
         {isTableLoading ? (
@@ -617,6 +659,34 @@ export default function FlashDealPage() {
           </div>
         )}
       </div>
+
+      {/* Add Pagination Controls */}
+      {flashDeals.length > 0 && total > limit && (
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-4">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Showing {Math.min((page - 1) * limit + 1, total)}-{Math.min(page * limit, total)} of {total}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(page - 1)}
+              disabled={page === 1}
+              className="px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 disabled:opacity-50"
+            >
+              Prev
+            </button>
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Page {page} of {Math.max(1, Math.ceil(total / limit))}
+            </span>
+            <button
+              onClick={() => setPage(page + 1)}
+              disabled={page * limit >= total}
+              className="px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       <AnimatePresence>
