@@ -97,6 +97,7 @@ export default function FlashDealPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [flag, setFlag] = useState(false);
   const { isOpen: isAddModalOpen, openModal: openAddModal, closeModal: closeAddModal } = useModal();
+  const { isOpen: isConfirmModalOpen, openModal: openConfirmModal, closeModal: closeConfirmModal } = useModal();
   const [darkMode, setDarkMode] = useState(false);
 
   // Add state for pagination
@@ -272,6 +273,45 @@ export default function FlashDealPage() {
     }
   };
 
+  // Helper function to format date strings for display (dd-MM-yyyy)
+  const formatDateForDisplay = (dateString: string) => {
+    if (!dateString) return "N/A";
+    try {
+      // Parse the date part of the ISO string (YYYY-MM-DD)
+      const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
+      // Create a new Date object representing midnight UTC on that date
+      const date = new Date(Date.UTC(year, month - 1, day));
+      
+      // Format using toLocaleDateString with UTC timezone
+      return date.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        timeZone: 'UTC' // Ensure UTC is used for display
+      });
+    } catch (error) {
+      console.error("Error formatting date for display:", dateString, error);
+      return "Invalid Date";
+    }
+  };
+
+  // Add helper function to get min date for start date picker
+  const getMinStartDate = () => {
+    if (editingFlashDeal && editingFlashDeal.startDate) {
+      // If editing, use the original start date (parsed from ISO) as minimum
+      try {
+        const [year, month, day] = editingFlashDeal.startDate.split('T')[0].split('-').map(Number);
+        return new Date(Date.UTC(year, month - 1, day));
+      } catch (error) {
+        console.error("Error parsing editingFlashDeal startDate:", editingFlashDeal.startDate, error);
+        // Fallback to current date if parsing fails
+        return new Date(new Date().toISOString().split('T')[0] + 'T00:00:00Z');
+      }
+    }
+    // For new deals, use current date (midnight UTC)
+    return new Date(new Date().toISOString().split('T')[0] + 'T00:00:00Z');
+  };
+
   const handleSubmit = () => {
     // Validate form data
     if (!formData.serviceId) {
@@ -299,23 +339,26 @@ export default function FlashDealPage() {
     }
     
     // Date validation
-    const currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0);
+    // Create date objects from YYYY-MM-DD strings at midnight UTC for comparison
+    const [startYear, startMonth, startDay] = formData.startDate.split('-').map(Number);
+    const startDate = new Date(Date.UTC(startYear, startMonth - 1, startDay));
     
-    const startDate = new Date(formData.startDate);
-    startDate.setHours(0, 0, 0, 0);
-    
-    const endDate = new Date(formData.endDate);
-    endDate.setHours(23, 59, 59, 999); // Set to end of day
+    const [endYear, endMonth, endDay] = formData.endDate.split('-').map(Number);
+    // Set end date to end of day in UTC for comparison
+    const endDate = new Date(Date.UTC(endYear, endMonth - 1, endDay, 23, 59, 59, 999));
 
     if (!formData.startDate || !formData.endDate) {
       alert("Start and end dates are required");
       return;
     }
 
-    if (startDate < currentDate) {
-      alert("Start date cannot be before today");
-      return;
+    // Only check start date against current date for new deals (midnight UTC)
+    if (!editingFlashDeal) {
+      const currentDate = new Date(new Date().toISOString().split('T')[0] + 'T00:00:00Z');
+      if (startDate < currentDate) {
+        alert("Start date cannot be before today");
+        return;
+      }
     }
 
     if (endDate < startDate) {
@@ -328,12 +371,9 @@ export default function FlashDealPage() {
       return;
     }
 
-    // Format dates to ISO strings with proper time
-    const formattedStartDate = new Date(formData.startDate);
-    formattedStartDate.setHours(0, 0, 0, 0);
-    
-    const formattedEndDate = new Date(formData.endDate);
-    formattedEndDate.setHours(23, 59, 59, 999);
+    // Format dates to ISO strings with proper time (midnight UTC for start, end of day UTC for end)
+    const formattedStartDate = new Date(startDate.toISOString()); // Already set to midnight UTC
+    const formattedEndDate = new Date(endDate.toISOString()); // Already set to end of day UTC
 
     setCurrentFlashDeal({
       _id: editingFlashDeal?._id || "",
@@ -348,7 +388,10 @@ export default function FlashDealPage() {
       imageUrl: formData.imageUrl,
       service: selectedService || undefined,
     });
-    openAddModal();
+
+    // Close the form modal and open confirmation modal
+    closeAddModal();
+    openConfirmModal();
   };
 
   const handleConfirm = async () => {
@@ -379,7 +422,7 @@ export default function FlashDealPage() {
         setFlashDeals(prev => [...prev, response.data.data]);
       }
       setFlag(!flag);
-      closeAddModal();
+      closeConfirmModal();
       resetForm();
     } catch (error) {
       console.error("Error saving flash deal:", error);
@@ -393,8 +436,9 @@ export default function FlashDealPage() {
     setEditingFlashDeal(flashDeal);
     
     // Convert ISO dates to YYYY-MM-DD format for input fields
-    const startDate = new Date(flashDeal.startDate);
-    const endDate = new Date(flashDeal.endDate);
+    // Ensure parsing handles potential timezone issues by extracting YYYY-MM-DD part
+    const startDatePart = flashDeal.startDate.split('T')[0];
+    const endDatePart = flashDeal.endDate.split('T')[0];
     
     setFormData({
       serviceId: flashDeal.serviceId,
@@ -402,8 +446,8 @@ export default function FlashDealPage() {
       description: flashDeal.description,
       originalPrice: flashDeal.originalPrice,
       discountedPrice: flashDeal.discountedPrice.toString(),
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0],
+      startDate: startDatePart,
+      endDate: endDatePart,
       maxQuantity: flashDeal.maxQuantity,
       imageUrl: flashDeal.imageUrl,
     });
@@ -590,16 +634,8 @@ export default function FlashDealPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col text-sm">
-                        <span>From: {new Date(deal.startDate).toLocaleDateString('en-GB', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric'
-                        })}</span>
-                        <span>To: {new Date(deal.endDate).toLocaleDateString('en-GB', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric'
-                        })}</span>
+                        <span>From: {formatDateForDisplay(deal.startDate)}</span>
+                        <span>To: {formatDateForDisplay(deal.endDate)}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -907,7 +943,7 @@ export default function FlashDealPage() {
                             <DatePicker
                               selected={formData.startDate ? new Date(formData.startDate + 'T00:00:00Z') : null}
                               onChange={(date) => handleChange(date, "startDate")}
-                              minDate={new Date(new Date().toISOString().split('T')[0] + 'T00:00:00Z')}
+                              minDate={getMinStartDate()}
                               dateFormat="dd-MM-yyyy"
                               className="w-full px-3 py-2 text-gray-900 dark:text-gray-200 bg-gray-50 border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800 dark:border-gray-700"
                               wrapperClassName="w-full"
@@ -919,7 +955,8 @@ export default function FlashDealPage() {
                                 />
                               }
                             />
-                            {formData.startDate && new Date(formData.startDate + 'T00:00:00Z') < new Date(new Date().toISOString().split('T')[0] + 'T00:00:00Z') && (
+                            {/* Validation message for new deals */}
+                            {!editingFlashDeal && formData.startDate && new Date(formData.startDate + 'T00:00:00Z') < new Date(new Date().toISOString().split('T')[0] + 'T00:00:00Z') && (
                               <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                                 Start date cannot be before today
                               </p>
@@ -1001,10 +1038,10 @@ export default function FlashDealPage() {
 
       {/* Confirmation Modal */}
       <AnimatePresence>
-        {isAddModalOpen && currentFlashDeal && (
+        {isConfirmModalOpen && currentFlashDeal && (
           <Modal
-            isOpen={isAddModalOpen}
-            onClose={closeAddModal}
+            isOpen={isConfirmModalOpen}
+            onClose={closeConfirmModal}
             className="max-w-[600px] !p-0"
           >
             <motion.div
@@ -1081,16 +1118,8 @@ export default function FlashDealPage() {
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Duration</p>
                     <p className="font-medium text-gray-900 dark:text-gray-200">
-                      {new Date(currentFlashDeal.startDate).toLocaleDateString('en-GB', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric'
-                      })} -{" "}
-                      {new Date(currentFlashDeal.endDate).toLocaleDateString('en-GB', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric'
-                      })}
+                      {currentFlashDeal && formatDateForDisplay(currentFlashDeal.startDate)} -{" "}
+                      {currentFlashDeal && formatDateForDisplay(currentFlashDeal.endDate)}
                     </p>
                   </div>
                   <div>
@@ -1114,7 +1143,7 @@ export default function FlashDealPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={closeAddModal}
+                    onClick={closeConfirmModal}
                     disabled={isLoading}
                   >
                     Cancel
