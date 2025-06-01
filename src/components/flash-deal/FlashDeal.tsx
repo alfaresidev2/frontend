@@ -97,6 +97,7 @@ export default function FlashDealPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [flag, setFlag] = useState(false);
   const { isOpen: isAddModalOpen, openModal: openAddModal, closeModal: closeAddModal } = useModal();
+  const { isOpen: isConfirmModalOpen, openModal: openConfirmModal, closeModal: closeConfirmModal } = useModal();
   const [darkMode, setDarkMode] = useState(false);
 
   // Add state for pagination
@@ -348,7 +349,10 @@ export default function FlashDealPage() {
       imageUrl: formData.imageUrl,
       service: selectedService || undefined,
     });
-    openAddModal();
+
+    // Close the form modal and open confirmation modal
+    closeAddModal();
+    openConfirmModal();
   };
 
   const handleConfirm = async () => {
@@ -379,7 +383,7 @@ export default function FlashDealPage() {
         setFlashDeals(prev => [...prev, response.data.data]);
       }
       setFlag(!flag);
-      closeAddModal();
+      closeConfirmModal();
       resetForm();
     } catch (error) {
       console.error("Error saving flash deal:", error);
@@ -1001,10 +1005,10 @@ export default function FlashDealPage() {
 
       {/* Confirmation Modal */}
       <AnimatePresence>
-        {isAddModalOpen && currentFlashDeal && (
+        {isConfirmModalOpen && currentFlashDeal && (
           <Modal
-            isOpen={isAddModalOpen}
-            onClose={closeAddModal}
+            isOpen={isConfirmModalOpen}
+            onClose={closeConfirmModal}
             className="max-w-[600px] !p-0"
           >
             <motion.div
@@ -1114,7 +1118,7 @@ export default function FlashDealPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={closeAddModal}
+                    onClick={closeConfirmModal}
                     disabled={isLoading}
                   >
                     Cancel
