@@ -561,7 +561,7 @@ export default function CollaborationPage() {
                                     >
                                         <td className="px-6 py-4">
                                             {collab?.imageUrl && (
-                                                <div className="relative w-10 h-10 rounded-lg overflow-hidden">
+                                                <div className="relative w-16 h-10 rounded-lg overflow-hidden">
                                                     {imageLoading[collab._id] !== false && (
                                                         <div style={shimmerStyle} className="absolute inset-0 w-full h-full" />
                                                     )}
