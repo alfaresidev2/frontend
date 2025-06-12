@@ -103,7 +103,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       };
 
       localStorage.setItem("user", JSON.stringify(user));
-      
+      window.location.reload();
       setToken(res.data.accessToken);
       setUser(user);
 
