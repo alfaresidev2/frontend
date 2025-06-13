@@ -1,8 +1,7 @@
 "use client";
 import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
 import UserDropdown from "@/components/header/UserDropdown";
-import { useSidebar } from "@/context/SidebarContext";
-import Image from "next/image";
+import { useSidebar } from "@/context/SidebarContext"; 
 import Link from "next/link";
 import React, { useState ,useEffect,useRef} from "react";
 
@@ -83,7 +82,8 @@ const AppHeader: React.FC = () => {
           </button>
 
           <Link href="/" className="lg:hidden">
-            <Image
+            <div className="text-lg font-bold dark:text-white whitespace-nowrap">Mashaheer Dashboard</div>
+            {/* <Image
               width={154}
               height={32}
               className="dark:hidden"
@@ -96,7 +96,7 @@ const AppHeader: React.FC = () => {
               className="hidden dark:block"
               src="./images/logo/logo-dark.svg"
               alt="Logo"
-            />
+            /> */}
           </Link>
 
           <button
@@ -119,7 +119,7 @@ const AppHeader: React.FC = () => {
             </svg>
           </button>
 
-          <div className="hidden lg:block">
+          {/* <div className="hidden lg:block">
             <form>
               <div className="relative">
                 <span className="absolute -translate-y-1/2 left-4 top-1/2 pointer-events-none">
@@ -152,7 +152,7 @@ const AppHeader: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
+          </div> */}
         </div>
         <div
           className={`${
