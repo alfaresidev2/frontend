@@ -135,6 +135,7 @@ export default function CollaborationPage() {
     const { isOpen, openModal, closeModal } = useModal();
     const [isLoading, setIsLoading] = useState(false);
     const [uploadLoading, setUploadLoading] = useState(false);
+    const [editLoading, setEditLoading] = useState(false);
     const [filePreview, setFilePreview] = useState<FilePreview | null>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({});
@@ -538,6 +539,7 @@ export default function CollaborationPage() {
     const handleEdit = async (collaboration: Collaboration) => {
         console.log(collaboration)
         setEditingCollaboration(collaboration);
+        setEditLoading(true);
         
         try {
             // Find the base influencer from the collaboration users
@@ -559,6 +561,9 @@ export default function CollaborationPage() {
             // Set the selected influencer and service
             setSelectedInfluencer(influencerWithServices);
             setSelectedService(service || null);
+            
+            console.log('Influencer with services:', influencerWithServices);
+            console.log('Found service:', service);
             
             setFormData({
                 title: collaboration.title,
@@ -588,6 +593,8 @@ export default function CollaborationPage() {
         } catch (error) {
             console.error('Error loading influencer data for editing:', error);
             alert('Failed to load collaboration data for editing');
+        } finally {
+            setEditLoading(false);
         }
     };
 
@@ -634,24 +641,7 @@ export default function CollaborationPage() {
         closeModal();
     };
 
-    const influencerOptions = influencers.map(influencer => ({
-        value: influencer._id,
-        label: (
-            <div className="flex items-center gap-2">
-                {influencer.profileImage && (
-                    <div className="relative w-6 h-6 rounded-full overflow-hidden">
-                        <Image
-                            src={influencer.profileImage.startsWith('http') ? influencer.profileImage : `${S3_BASE_URL}/${influencer.profileImage}`}
-                            alt={influencer.name}
-                            fill
-                            className="object-cover"
-                        />
-                    </div>
-                )}
-                <span>{influencer.name}</span>
-            </div>
-        ),
-    }));
+ 
 
     // Add navigation function
     const handleRowClick = (collaborationId: string) => {
@@ -897,43 +887,56 @@ export default function CollaborationPage() {
                                 <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
                                     Select Service
                                 </label>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {selectedInfluencer.services?.map((service) => (
-                                        <div
-                                            key={service._id}
-                                            onClick={() => handleServiceChange(service)}
-                                            className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedService?._id === service._id
+                                {editLoading ? (
+                                    <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
+                                        <div className="flex items-center gap-2">
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                                            <p className="text-gray-600 dark:text-gray-400">Loading services...</p>
+                                        </div>
+                                    </div>
+                                ) : selectedInfluencer.services && selectedInfluencer.services.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {selectedInfluencer.services.map((service) => (
+                                            <div
+                                                key={service._id}
+                                                onClick={() => handleServiceChange(service)}
+                                                className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedService?._id === service._id
                                                     ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
                                                     : "border-gray-200 dark:border-gray-700 hover:border-blue-500"
                                                 }`}
-                                        >
-                                            <div className="flex gap-4">
-                                                <div className="relative w-16 h-16 rounded-lg overflow-hidden">
-                                                    {imageLoading[`service-${service._id}`] !== false && (
-                                                        <div style={shimmerStyle} className="absolute inset-0 w-full h-full" />
-                                                    )}
-                                                    <Image
-                                                        src={service.imageUrl || "/placeholder.svg"}
-                                                        alt={service.title}
-                                                        fill
-                                                        className="object-cover"
-                                                        onLoadingComplete={() => setImageLoading(prev => ({ ...prev, [`service-${service._id}`]: false }))}
-                                                        onLoad={() => setImageLoading(prev => ({ ...prev, [`service-${service._id}`]: false }))}
-                                                        style={imageLoading[`service-${service._id}`] !== false ? { visibility: 'hidden' } : {}}
-                                                    />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <h3 className="font-medium text-gray-900 dark:text-gray-200">{service.title}</h3>
-                                                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{service.description}</p>
-                                                    <div className="flex items-center gap-4 mt-2 text-sm">
-                                                        <span className="text-green-600 dark:text-green-400">${service.price}</span>
-                                                        <span className="text-gray-500 dark:text-gray-400">{service.duration} min</span>
+                                            >
+                                                <div className="flex gap-4">
+                                                    <div className="relative w-16 h-16 rounded-lg overflow-hidden">
+                                                        {imageLoading[`service-${service._id}`] !== false && (
+                                                            <div style={shimmerStyle} className="absolute inset-0 w-full h-full" />
+                                                        )}
+                                                        <Image
+                                                            src={service.imageUrl || "/placeholder.svg"}
+                                                            alt={service.title}
+                                                            fill
+                                                            className="object-cover"
+                                                            onLoadingComplete={() => setImageLoading(prev => ({ ...prev, [`service-${service._id}`]: false }))}
+                                                            onLoad={() => setImageLoading(prev => ({ ...prev, [`service-${service._id}`]: false }))}
+                                                            style={imageLoading[`service-${service._id}`] !== false ? { visibility: 'hidden' } : {}}
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <h3 className="font-medium text-gray-900 dark:text-gray-200">{service.title}</h3>
+                                                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{service.description}</p>
+                                                        <div className="flex items-center gap-4 mt-2 text-sm">
+                                                            <span className="text-green-600 dark:text-green-400">${service.price}</span>
+                                                            <span className="text-gray-500 dark:text-gray-400">{service.duration} min</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
+                                        <p className="text-gray-600 dark:text-gray-400">No services available for this influencer.</p>
+                                    </div>
+                                )}
                             </div>
                         )}
 
