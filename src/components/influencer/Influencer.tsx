@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 "use client"
 
 import type React from "react"
@@ -1529,7 +1531,7 @@ export default function InfluencerPage() {
           >
             <motion.div
               className="h-full bg-white dark:bg-slate-900/95 backdrop-blur-sm"
-              variants={modalVariants}
+              variants={modalVariants as unknown as any}
               initial="hidden"
               animate="visible"
               exit="hidden"
@@ -1540,7 +1542,7 @@ export default function InfluencerPage() {
               <div className="h-full flex flex-col">
                 <motion.div
                   className="flex items-center justify-between p-6 lg:p-8 border-b border-gray-200 dark:border-slate-700"
-                  variants={fadeInUp}
+                  variants={fadeInUp as unknown as any}
                 >
                   <h4 className="text-lg font-medium text-gray-900 dark:text-gray-200">
                     {editingInfluencer ? "Edit Influencer" : "Add New Influencer"}
@@ -1561,7 +1563,7 @@ export default function InfluencerPage() {
                 >
                   <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
                     {/* Basic Information */}
-                    <motion.div className="grid grid-cols-1 gap-6 md:grid-cols-2" variants={itemVariants}>
+                    <motion.div className="grid grid-cols-1 gap-6 md:grid-cols-2" variants={itemVariants as unknown as any}>
                       <div>
                         <label
                           htmlFor="name"
@@ -1649,7 +1651,7 @@ export default function InfluencerPage() {
                       </div>
                     </motion.div>
                     {/* Profile Picture with Cropping */}
-                    <motion.div variants={itemVariants}>
+                    <motion.div variants={itemVariants as unknown as any}>
                       <div>
                         <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
                           Profile Picture <span className="text-red-500">*</span>
@@ -1728,7 +1730,7 @@ export default function InfluencerPage() {
                     </motion.div>
 
                     {/* Categories */}
-                    <motion.div variants={itemVariants}>
+                    <motion.div variants={itemVariants as unknown as any}>
                       <div>
                         <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
                           Category <span className="text-red-500">*</span>
@@ -1795,7 +1797,7 @@ export default function InfluencerPage() {
                     </motion.div>
 
                     {/* Tags */}
-                    <motion.div variants={itemVariants}>
+                    <motion.div variants={itemVariants as unknown as any}>
                       <div>
                         <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">Tags</label>
                         <div className="space-y-2">
@@ -1856,7 +1858,7 @@ export default function InfluencerPage() {
                     </motion.div>
 
                     {/* Bio */}
-                    <motion.div variants={itemVariants}>
+                    <motion.div variants={itemVariants as unknown as any}>
                       <div>
                         <label
                           htmlFor="bio"
@@ -1876,7 +1878,7 @@ export default function InfluencerPage() {
                     </motion.div>
 
                     {/* Platform URLs */}
-                    <motion.div variants={itemVariants}>
+                    <motion.div variants={itemVariants as unknown as any}>
                       <div>
                         <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
                           Social Media Platforms <span className="text-red-500">*</span>
@@ -1949,7 +1951,7 @@ export default function InfluencerPage() {
                     </motion.div>
 
                     {/* File Uploads */}
-                    <motion.div className="grid grid-cols-1 gap-6 md:grid-cols-2" variants={itemVariants}>
+                    <motion.div className="grid grid-cols-1 gap-6 md:grid-cols-2" variants={itemVariants as unknown as any}>
                       <div>
                         <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
                           Upload Photos
@@ -2111,7 +2113,7 @@ export default function InfluencerPage() {
                     </motion.div>
 
                     {/* Crop Modal */}
-                    <motion.div variants={itemVariants}>
+                    <motion.div variants={itemVariants as unknown as any}>
                       <Modal
                         isOpen={showCropModal}
                         onClose={() => setShowCropModal(false)}
@@ -2171,7 +2173,7 @@ export default function InfluencerPage() {
                       </Modal>
                     </motion.div>
 
-                    <motion.div className="flex items-center justify-end gap-3" variants={itemVariants}>
+                    <motion.div className="flex items-center justify-end gap-3" variants={itemVariants as unknown as any}>
                       <Button
                         size="sm"
                         variant="outline"
