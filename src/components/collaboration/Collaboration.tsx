@@ -12,6 +12,17 @@ import { useRouter } from "next/navigation";
 import ReactCrop, { type Crop, type PixelCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 
+interface Service {
+    _id: string;
+    title: string;
+    description: string;
+    price: number;
+    imageUrl: string;
+    requireTimeSlot: boolean;
+    duration: number;
+    type: string;
+}
+
 interface Influencer {
     _id: string;
     name: string;
@@ -33,6 +44,7 @@ interface Influencer {
     images: string[];
     videos: string[];
     gender: string;
+    services: Service[];
     meta: {
         isVerified: boolean;
         verificationCode?: string;
@@ -46,12 +58,21 @@ interface Influencer {
 
 interface Collaboration {
     _id: string;
-    users: string[];
-    usersData: Influencer[];
-    createdBy: string;
-    imageUrl: string;
     title: string;
     description: string;
+    imageUrl: string;
+    requireTimeSlot: boolean;
+    price: number;
+    duration: number;
+    type: string;
+    // users: string[];
+    users: Influencer[];
+    createdBy: string;
+    collaborationDetails: {
+        title: string;
+        images: string[];
+        description: string;
+    };
     createdAt: string;
     updatedAt: string;
     __v: number;
@@ -92,11 +113,23 @@ const shimmerKeyframes = `
 export default function CollaborationPage() {
     const [collaborations, setCollaborations] = useState<Collaboration[]>([]);
     const [influencers, setInfluencers] = useState<Influencer[]>([]);
+    const [allInfluencers, setAllInfluencers] = useState<Influencer[]>([]);
+    const [selectedInfluencer, setSelectedInfluencer] = useState<Influencer | null>(null);
+    const [selectedService, setSelectedService] = useState<Service | null>(null);
     const [formData, setFormData] = useState({
-        users: [] as string[],
-        imageUrl: "",
         title: "",
         description: "",
+        imageUrl: "",
+        requireTimeSlot: true,
+        price: 0,
+        duration: 30,
+        type: "collaboration",
+        users: [] as string[],
+        collaborationDetails: {
+            title: "",
+            images: [] as string[],
+            description: ""
+        }
     });
     const [editingCollaboration, setEditingCollaboration] = useState<Collaboration | null>(null);
     const { isOpen, openModal, closeModal } = useModal();
@@ -124,11 +157,12 @@ export default function CollaborationPage() {
     useEffect(() => {
         fetchCollaborations();
         fetchInfluencers();
-    }, [flag, page, limit]); // Added page and limit to dependencies
+        fetchAllInfluencers().then(setAllInfluencers);
+    }, [flag, page, limit]);
 
     const fetchCollaborations = async () => {
         try {
-            const response = await api.get('/collaboration', {
+            const response = await api.get('/influencer-service/collaborations', {
                 params: { page, limit }
             });
             setCollaborations(response.data?.data?.docs || []);
@@ -141,11 +175,26 @@ export default function CollaborationPage() {
 
     const fetchInfluencers = async () => {
         try {
-            const response = await api.get('/user/list-influencers');
+            const response = await api.get('/user/influencer-search', {
+                params: { hasService: true, hideDisabledUsers:true }
+            });
             setInfluencers(response.data?.data?.docs || []);
         } catch (error) {
             console.error('Error fetching influencers:', error);
             alert('Failed to load influencers');
+        }
+    };
+
+    const fetchAllInfluencers = async () => {
+        try {
+            const response = await api.get('/user/influencer-search',{
+                params: {limit:100,hideDisabledUsers:true}
+            });
+            console.log(response)
+            return response.data?.data?.docs || [];
+        } catch (error) {
+            console.error('Error fetching all influencers:', error);
+            return [];
         }
     };
 
@@ -197,6 +246,48 @@ export default function CollaborationPage() {
             console.error("Error uploading file:", error);
             throw new Error("Failed to upload file");
         }
+    };
+
+    // Handle influencer selection
+    const handleInfluencerSelection = (selected: Influencer | null) => {
+        setSelectedInfluencer(selected);
+        setSelectedService(null);
+        setFormData(prev => ({
+            ...prev,
+            title: "",
+            description: "",
+            imageUrl: "",
+            requireTimeSlot: true,
+            price: 0,
+            duration: 30,
+            users: [],
+            collaborationDetails: {
+                title: "",
+                images: [],
+                description: ""
+            }
+        }));
+    };
+
+    // Handle service selection
+    const handleServiceChange = (service: Service) => {
+        setSelectedService(service);
+        setFormData(prev => ({
+            ...prev,
+            title: service.title,
+            description: service.description,
+            imageUrl: service.imageUrl,
+            requireTimeSlot: service.requireTimeSlot,
+            price: service.price,
+            duration: service.duration,
+            type: service.type,
+            users: selectedInfluencer ? [selectedInfluencer._id] : [],
+            collaborationDetails: {
+                title: "",
+                images: [],
+                description: ""
+            }
+        }));
     };
 
     // Updated handleFileSelect to use the cropper
@@ -375,28 +466,41 @@ export default function CollaborationPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.title.trim() || formData.users.length < 2) {
-            alert('Please select atleast two influencers and provide a title');
+        if (!formData.title.trim() || !selectedService || formData.users.length < 2) {
+            alert('Please select a service and at least two influencers for collaboration');
             return;
         }
         setIsLoading(true);
         try {
-            console.log('hiiiiasd')
             if (editingCollaboration) {
                 // Update existing collaboration
-                await api.put(`/collaboration/${editingCollaboration._id}`, formData);
-
+                await api.put(`/influencer-service/collaboration/${editingCollaboration._id}`, formData);
                 setFlag(!flag);
                 setEditingCollaboration(null);
             } else {
                 // Add new collaboration
-                await api.post('/collaboration', formData);
-                // setCollaborations([...collaborations, response.data.data]);
+                await api.post('/influencer-service/collaboration', formData);
                 setFlag(!flag);
             }
 
-            setFormData({ users: [], imageUrl: "", title: "", description: "" });
+            setFormData({
+                title: "",
+                description: "",
+                imageUrl: "",
+                requireTimeSlot: true,
+                price: 0,
+                duration: 30,
+                type: "collaboration",
+                users: [],
+                collaborationDetails: {
+                    title: "",
+                    images: [],
+                    description: ""
+                }
+            });
             setFilePreview(null);
+            setSelectedInfluencer(null);
+            setSelectedService(null);
             closeModal();
         } catch (error) {
             console.error('Error saving collaboration:', error);
@@ -408,41 +512,83 @@ export default function CollaborationPage() {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        if (name.startsWith('collaborationDetails.')) {
+            const field = name.split('.')[1];
+            setFormData(prev => ({
+                ...prev,
+                collaborationDetails: {
+                    ...prev.collaborationDetails,
+                    [field]: value
+                }
+            }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     const handleInfluencerChange = (selectedOptions: MultiValue<{ value: string; label: React.ReactNode }>) => {
-        // if (selectedOptions.length > 2) {
-        //   alert('You can only select two influencers');
-        //   return;
-        // }
+        const additionalUserIds = selectedOptions.map((option) => option.value);
+        const allUserIds = selectedInfluencer ? [selectedInfluencer._id, ...additionalUserIds] : additionalUserIds;
         setFormData(prev => ({
             ...prev,
-            users: selectedOptions.map((option) => option.value)
+            users: allUserIds
         }));
     };
 
-    const handleEdit = (collaboration: Collaboration) => {
+    const handleEdit = async (collaboration: Collaboration) => {
+        console.log(collaboration)
         setEditingCollaboration(collaboration);
-        setFormData({
-            users: collaboration.users,
-            imageUrl: collaboration.imageUrl || "",
-            title: collaboration.title,
-            description: collaboration.description || "",
-        });
-        if (collaboration.imageUrl) {
-            // For existing images, create a preview without triggering the cropper
-            setFilePreview({
-                id: "existing-image",
-                url: collaboration.imageUrl.startsWith('http') ? collaboration.imageUrl : `${S3_BASE_URL}/${collaboration.imageUrl}`,
-                file: new File([], collaboration.imageUrl.split("/").pop() || ""), // Dummy file for consistency
-                type: "image",
-                signature: collaboration.imageUrl,
+        
+        try {
+            // Find the base influencer from the collaboration users
+            const baseInfluencer = collaboration.users.find(user => 
+                user.services && user.services.length > 0
+            ) || collaboration.users[0];
+            
+            // Fetch the influencer with services to ensure we have complete data
+            const influencerResponse = await api.get(`/user/${baseInfluencer._id}`);
+            const influencerWithServices = influencerResponse.data.data;
+            
+            // Find the service by matching properties
+            const service = influencerWithServices.services?.find((s: Service) => 
+                s.title === collaboration.title || 
+                s.price === collaboration.price ||
+                s.duration === collaboration.duration
+            );
+            
+            // Set the selected influencer and service
+            setSelectedInfluencer(influencerWithServices);
+            setSelectedService(service || null);
+            
+            setFormData({
+                title: collaboration.title,
+                description: collaboration.description,
+                imageUrl: collaboration.imageUrl || "",
+                requireTimeSlot: collaboration.requireTimeSlot,
+                price: collaboration.price,
+                duration: collaboration.duration,
+                type: collaboration.type,
+                users: collaboration.users.map(user => user._id),
+                collaborationDetails: collaboration.collaborationDetails
             });
-        } else {
-            setFilePreview(null);
+            
+            if (collaboration.imageUrl) {
+                // For existing images, create a preview without triggering the cropper
+                setFilePreview({
+                    id: "existing-image",
+                    url: collaboration.imageUrl.startsWith('http') ? collaboration.imageUrl : `${S3_BASE_URL}/${collaboration.imageUrl}`,
+                    file: new File([], collaboration.imageUrl.split("/").pop() || ""), // Dummy file for consistency
+                    type: "image",
+                    signature: collaboration.imageUrl,
+                });
+            } else {
+                setFilePreview(null);
+            }
+            openModal();
+        } catch (error) {
+            console.error('Error loading influencer data for editing:', error);
+            alert('Failed to load collaboration data for editing');
         }
-        openModal();
     };
 
     const handleDelete = async (collaborationId: string) => {
@@ -450,7 +596,7 @@ export default function CollaborationPage() {
 
         setIsLoading(true);
         try {
-            await api.delete(`/collaboration/${collaborationId}`);
+            await api.delete(`/influencer-service/${collaborationId}`);
             setCollaborations(collaborations.filter(collab => collab._id !== collaborationId));
         } catch (error) {
             console.error('Error deleting collaboration:', error);
@@ -461,15 +607,30 @@ export default function CollaborationPage() {
     };
 
     const handleButtonClick = () => {
-
         // Only proceed with submit if validation passes
         handleSubmit({ preventDefault: () => { } } as React.FormEvent);
     };
 
     const handleModalClose = () => {
         setEditingCollaboration(null);
-        setFormData({ users: [], imageUrl: "", title: "", description: "" });
+        setFormData({
+            title: "",
+            description: "",
+            imageUrl: "",
+            requireTimeSlot: true,
+            price: 0,
+            duration: 30,
+            type: "collaboration",
+            users: [],
+            collaborationDetails: {
+                title: "",
+                images: [],
+                description: ""
+            }
+        });
         setFilePreview(null);
+        setSelectedInfluencer(null);
+        setSelectedService(null);
         closeModal();
     };
 
@@ -548,6 +709,8 @@ export default function CollaborationPage() {
                                     <th scope="col" className="px-6 py-4">Image</th>
                                     <th scope="col" className="px-6 py-4">Title</th>
                                     <th scope="col" className="px-6 py-4">Description</th>
+                                    <th scope="col" className="px-6 py-4">Price</th>
+                                    <th scope="col" className="px-6 py-4">Duration</th>
                                     <th scope="col" className="px-6 py-4">Influencers</th>
                                     <th scope="col" className="px-6 py-4 text-right">Actions</th>
                                 </tr>
@@ -583,9 +746,15 @@ export default function CollaborationPage() {
                                         <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
                                             {collab?.description.slice(0, 50) + "..." || "-"}
                                         </td>
+                                        <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
+                                            ${collab?.price || 0}
+                                        </td>
+                                        <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
+                                            {collab?.duration || 0} min
+                                        </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center -space-x-2">
-                                                {collab.usersData.map(user => (
+                                                {collab.users.map(user => (
                                                     user.profileImage && (
                                                         <div key={user._id} className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-white dark:border-slate-900">
                                                             <Image
@@ -663,137 +832,280 @@ export default function CollaborationPage() {
             <Modal
                 isOpen={isOpen}
                 onClose={handleModalClose}
-                className="max-w-[584px] !p-0"
+                className="max-w-[800px] !p-0"
             >
-                <div className="h-full bg-white dark:bg-slate-900/95 backdrop-blur-sm p-6 lg:p-8 rounded-[20px] border border-gray-200 dark:border-slate-800">
+                <div className="h-full max-h-[95vh] overflow-auto bg-white dark:bg-slate-900/95 backdrop-blur-sm p-6 lg:p-8 rounded-[20px] border border-gray-200 dark:border-slate-800">
                     <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
                         <h4 className="mb-6 text-lg font-medium text-gray-900 dark:text-gray-200">
                             {editingCollaboration ? "Edit Collaboration" : "Add New Collaboration"}
                         </h4>
 
-                        {/* Influencer Selection */}
+                        {/* Step 1: Select Influencer with Service */}
                         <div>
                             <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
-                                Select Influencers (Atleast 2)
+                                Select Influencer with Service
                             </label>
                             <Select
-                                isMulti
-                                options={influencerOptions}
-                                value={influencerOptions.filter(option => formData.users.includes(option.value))}
-                                onChange={handleInfluencerChange}
+                                options={influencers.map(influencer => ({
+                                    value: influencer._id,
+                                    label: (
+                                        <div className="flex items-center gap-2">
+                                            {influencer.profileImage && (
+                                                <div className="relative w-6 h-6 rounded-full overflow-hidden">
+                                                    <Image
+                                                        src={influencer.profileImage.startsWith('http') ? influencer.profileImage : `${S3_BASE_URL}/${influencer.profileImage}`}
+                                                        alt={influencer.name}
+                                                        fill
+                                                        className="object-cover"
+                                                    />
+                                                </div>
+                                            )}
+                                            <span>{influencer.name}</span>
+                                        </div>
+                                    ),
+                                }))}
+                                value={selectedInfluencer ? {
+                                    value: selectedInfluencer._id,
+                                    label: (
+                                        <div className="flex items-center gap-2">
+                                            {selectedInfluencer.profileImage && (
+                                                <div className="relative w-6 h-6 rounded-full overflow-hidden">
+                                                    <Image
+                                                        src={selectedInfluencer.profileImage.startsWith('http') ? selectedInfluencer.profileImage : `${S3_BASE_URL}/${selectedInfluencer.profileImage}`}
+                                                        alt={selectedInfluencer.name}
+                                                        fill
+                                                        className="object-cover"
+                                                    />
+                                                </div>
+                                            )}
+                                            <span>{selectedInfluencer.name}</span>
+                                        </div>
+                                    ),
+                                } : null}
+                                onChange={(option) => handleInfluencerSelection(option ? influencers.find(inf => inf._id === option.value) || null : null)}
                                 className="react-select-container"
                                 classNamePrefix="react-select"
-                                placeholder="Select atleast two influencers..."
+                                placeholder="Select an influencer with services..."
                                 isDisabled={isLoading}
                                 maxMenuHeight={200}
                             />
                         </div>
 
-                        {/* Image Upload with Cropper Integration */}
-                        <div>
-                            <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
-                                Collaboration Image
-                            </label>
-                            <input
-                                type="file"
-                                ref={imageInputRef}
-                                className="hidden"
-                                accept="image/*"
-                                onChange={(e) => handleFileSelect(e.target.files)}
-                                disabled={uploadLoading || isCropping}
-                            />
-                            <div className="space-y-4">
-                                {filePreview ? (
-                                    <div className="relative w-56 h-32 group">
-                                        <div className="absolute inset-0 rounded-lg overflow-hidden bg-gray-50">
-                                            {imageLoading['modal-preview'] !== false && (
-                                                <div style={shimmerStyle} className="absolute inset-0 w-full h-full" />
-                                            )}
-                                            <Image
-                                                src={filePreview.url}
-                                                alt="Collaboration Image Preview"
-                                                fill
-                                                className="object-cover"
-                                                sizes="(max-width: 128px) 100vw, 128px"
-                                                onLoadingComplete={() => setImageLoading((prev) => ({ ...prev, ['modal-preview']: false }))}
-                                                onLoad={() => setImageLoading((prev) => ({ ...prev, ['modal-preview']: false }))}
-                                                style={imageLoading['modal-preview'] !== false ? { visibility: 'hidden' } : {}}
-                                            />
-                                        </div>
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
-                                            {(uploadLoading || isCropping) ? (
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                                            ) : (
-                                                <Button size="sm" variant="primary" onClick={removeFile}>
-                                                    Remove
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div
-                                        onClick={() => !(uploadLoading || isCropping) && imageInputRef.current?.click()}
-                                        className={`w-44 h-32 flex items-center justify-center rounded-lg border-2 border-dashed border-gray-200 cursor-pointer hover:border-gray-300 transition-all hover:scale-105 active:scale-95 ${uploadLoading || isCropping ? "opacity-50 cursor-not-allowed" : ""}`}
-                                    >
-                                        {(uploadLoading || isCropping) ? (
-                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                                        ) : (
-                                            <div className="text-center">
-                                                <div className="w-8 h-8 mx-auto mb-2 text-gray-500 dark:text-gray-400">
-                                                    <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        fill="none"
-                                                        viewBox="0 0 24 24"
-                                                        stroke="currentColor"
-                                                    >
-                                                        <path
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                            strokeWidth={2}
-                                                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                                                        />
-                                                    </svg>
+                        {/* Step 2: Select Service */}
+                        {selectedInfluencer && (
+                            <div>
+                                <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
+                                    Select Service
+                                </label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {selectedInfluencer.services?.map((service) => (
+                                        <div
+                                            key={service._id}
+                                            onClick={() => handleServiceChange(service)}
+                                            className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedService?._id === service._id
+                                                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                                                    : "border-gray-200 dark:border-gray-700 hover:border-blue-500"
+                                                }`}
+                                        >
+                                            <div className="flex gap-4">
+                                                <div className="relative w-16 h-16 rounded-lg overflow-hidden">
+                                                    {imageLoading[`service-${service._id}`] !== false && (
+                                                        <div style={shimmerStyle} className="absolute inset-0 w-full h-full" />
+                                                    )}
+                                                    <Image
+                                                        src={service.imageUrl || "/placeholder.svg"}
+                                                        alt={service.title}
+                                                        fill
+                                                        className="object-cover"
+                                                        onLoadingComplete={() => setImageLoading(prev => ({ ...prev, [`service-${service._id}`]: false }))}
+                                                        onLoad={() => setImageLoading(prev => ({ ...prev, [`service-${service._id}`]: false }))}
+                                                        style={imageLoading[`service-${service._id}`] !== false ? { visibility: 'hidden' } : {}}
+                                                    />
                                                 </div>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400 p-2">Upload Collaboration Image</p>
+                                                <div className="flex-1">
+                                                    <h3 className="font-medium text-gray-900 dark:text-gray-200">{service.title}</h3>
+                                                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{service.description}</p>
+                                                    <div className="flex items-center gap-4 mt-2 text-sm">
+                                                        <span className="text-green-600 dark:text-green-400">${service.price}</span>
+                                                        <span className="text-gray-500 dark:text-gray-400">{service.duration} min</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Step 3: Select Additional Influencers for Collaboration */}
+                        {selectedInfluencer && (
+                            <div>
+                                <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
+                                    Select Additional Influencers for Collaboration (At least 1 more)
+                                </label>
+                                <Select
+                                    isMulti
+                                    options={allInfluencers
+                                        .filter(influencer => influencer._id !== selectedInfluencer?._id)
+                                        .map(influencer => ({
+                                            value: influencer._id,
+                                            label: (
+                                                <div className="flex items-center gap-2">
+                                                    {influencer.profileImage && (
+                                                        <div className="relative w-6 h-6 rounded-full overflow-hidden">
+                                                            <Image
+                                                                src={influencer.profileImage.startsWith('http') ? influencer.profileImage : `${S3_BASE_URL}/${influencer.profileImage}`}
+                                                                alt={influencer.name}
+                                                                fill
+                                                                className="object-cover"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <span>{influencer.name}</span>
+                                                </div>
+                                            ),
+                                        }))}
+                                    value={allInfluencers
+                                        .filter(influencer => influencer._id !== selectedInfluencer?._id)
+                                        .map(influencer => ({
+                                            value: influencer._id,
+                                            label: (
+                                                <div className="flex items-center gap-2">
+                                                    {influencer.profileImage && (
+                                                        <div className="relative w-6 h-6 rounded-full overflow-hidden">
+                                                            <Image
+                                                                src={influencer.profileImage.startsWith('http') ? influencer.profileImage : `${S3_BASE_URL}/${influencer.profileImage}`}
+                                                                alt={influencer.name}
+                                                                fill
+                                                                className="object-cover"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <span>{influencer.name}</span>
+                                                </div>
+                                            ),
+                                        }))
+                                        .filter(option => formData.users.includes(option.value) && option.value !== selectedInfluencer?._id)}
+                                    onChange={handleInfluencerChange}
+                                    className="react-select-container"
+                                    classNamePrefix="react-select"
+                                    placeholder="Select additional influencers for collaboration..."
+                                    isDisabled={isLoading}
+                                    maxMenuHeight={200}
+                                />
+                            </div>
+                        )}
+
+                        {/* Collaboration Details */}
+                        {selectedService && (
+                            <>
+                                <div>
+                                    <label htmlFor="collaborationDetails.title" className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
+                                        Collaboration Title
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="collaborationDetails.title"
+                                        name="collaborationDetails.title"
+                                        value={formData.collaborationDetails.title}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-2.5 text-gray-900 dark:text-gray-200 bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 dark:placeholder-gray-400"
+                                        placeholder="Enter collaboration title"
+                                        required
+                                        disabled={isLoading}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label htmlFor="collaborationDetails.description" className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
+                                        Collaboration Description
+                                    </label>
+                                    <textarea
+                                        id="collaborationDetails.description"
+                                        name="collaborationDetails.description"
+                                        value={formData.collaborationDetails.description}
+                                        onChange={handleChange}
+                                        rows={3}
+                                        className="w-full px-4 py-2.5 text-gray-900 dark:text-gray-200 bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 dark:placeholder-gray-400"
+                                        placeholder="Enter collaboration description"
+                                        disabled={isLoading}
+                                    />
+                                </div>
+
+                                {/* Image Upload with Cropper Integration */}
+                                <div>
+                                    <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
+                                        Collaboration Image
+                                    </label>
+                                    <input
+                                        type="file"
+                                        ref={imageInputRef}
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={(e) => handleFileSelect(e.target.files)}
+                                        disabled={uploadLoading || isCropping}
+                                    />
+                                    <div className="space-y-4">
+                                        {filePreview ? (
+                                            <div className="relative w-56 h-32 group">
+                                                <div className="absolute inset-0 rounded-lg overflow-hidden bg-gray-50">
+                                                    {imageLoading['modal-preview'] !== false && (
+                                                        <div style={shimmerStyle} className="absolute inset-0 w-full h-full" />
+                                                    )}
+                                                    <Image
+                                                        src={filePreview.url}
+                                                        alt="Collaboration Image Preview"
+                                                        fill
+                                                        className="object-cover"
+                                                        sizes="(max-width: 128px) 100vw, 128px"
+                                                        onLoadingComplete={() => setImageLoading((prev) => ({ ...prev, ['modal-preview']: false }))}
+                                                        onLoad={() => setImageLoading((prev) => ({ ...prev, ['modal-preview']: false }))}
+                                                        style={imageLoading['modal-preview'] !== false ? { visibility: 'hidden' } : {}}
+                                                    />
+                                                </div>
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                                                    {(uploadLoading || isCropping) ? (
+                                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                                                    ) : (
+                                                        <Button size="sm" variant="primary" onClick={removeFile}>
+                                                            Remove
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div
+                                                onClick={() => !(uploadLoading || isCropping) && imageInputRef.current?.click()}
+                                                className={`w-44 h-32 flex items-center justify-center rounded-lg border-2 border-dashed border-gray-200 cursor-pointer hover:border-gray-300 transition-all hover:scale-105 active:scale-95 ${uploadLoading || isCropping ? "opacity-50 cursor-not-allowed" : ""}`}
+                                            >
+                                                {(uploadLoading || isCropping) ? (
+                                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                                                ) : (
+                                                    <div className="text-center">
+                                                        <div className="w-8 h-8 mx-auto mb-2 text-gray-500 dark:text-gray-400">
+                                                            <svg
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                                stroke="currentColor"
+                                                            >
+                                                                <path
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                    strokeWidth={2}
+                                                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                                                                />
+                                                            </svg>
+                                                        </div>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 p-2">Upload Collaboration Image</p>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div>
-                            <label htmlFor="title" className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
-                                Title
-                            </label>
-                            <input
-                                type="text"
-                                id="title"
-                                name="title"
-                                value={formData.title}
-                                onChange={handleChange}
-                                className="w-full px-4 py-2.5 text-gray-900 dark:text-gray-200 bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 dark:placeholder-gray-400"
-                                placeholder="Enter collaboration title"
-                                required
-                                disabled={isLoading}
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="description" className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
-                                Description
-                            </label>
-                            <textarea
-                                id="description"
-                                name="description"
-                                value={formData.description}
-                                onChange={handleChange}
-                                rows={3}
-                                className="w-full px-4 py-2.5 text-gray-900 dark:text-gray-200 bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 dark:placeholder-gray-400"
-                                placeholder="Enter collaboration description"
-                                disabled={isLoading}
-                            />
-                        </div>
+                                </div>
+                            </>
+                        )}
 
                         <div className="flex items-center justify-end w-full gap-3 mt-6">
                             <Button
