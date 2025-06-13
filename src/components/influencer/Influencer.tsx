@@ -12,6 +12,7 @@ import "react-image-crop/dist/ReactCrop.css"
 import api from "@/utils/axios"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
+import { AxiosError } from "axios"
 
 interface Category {
   _id: string
@@ -701,6 +702,14 @@ export default function InfluencerPage() {
       closeAddModal()
       resetForm()
     } catch (error) {
+      if (error instanceof AxiosError && error.response?.data?.message === "A user with this email already exists") {
+        alert("A user with this email already exists. Please use a different email.")
+        return
+      }
+      if (error instanceof AxiosError && error.response?.data?.message === "A user with this phone number already exists") {
+        alert("A user with this phone number already exists. Please use a different phone number.")
+        return
+      }
       console.error("Error saving influencer:", error)
       alert("Failed to save influencer. Please try again.")
     } finally {

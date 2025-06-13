@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Select from "react-select";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import Switch from "@/components/form/switch/Switch";
 
 interface Service {
   _id: string;
@@ -39,6 +40,7 @@ interface FlashDeal {
   endDate: string; // ISO string with time
   maxQuantity: number;
   imageUrl: string;
+  isActive: boolean;
   service?: Service;
 }
 
@@ -386,6 +388,7 @@ export default function FlashDealPage() {
       endDate: formattedEndDate.toISOString(),
       maxQuantity: formData.maxQuantity,
       imageUrl: formData.imageUrl,
+      isActive: true,
       service: selectedService || undefined,
     });
 
@@ -410,6 +413,7 @@ export default function FlashDealPage() {
         endDate: currentFlashDeal.endDate,
         maxQuantity: currentFlashDeal.maxQuantity,
         imageUrl: currentFlashDeal.imageUrl,
+        isActive: editingFlashDeal ? editingFlashDeal.isActive : true, // Keep existing status when editing, default to true for new deals
       };
 
       if (editingFlashDeal) {
@@ -507,6 +511,28 @@ export default function FlashDealPage() {
     setOpenActionMenu(openActionMenu === dealId ? null : dealId);
   };
 
+  const handleToggleActive = async (dealId: string, currentStatus: boolean) => {
+    setIsLoading(true);
+    try {
+      await api.put(`/flash-deal/${dealId}`, {
+        isActive: !currentStatus
+      });
+      
+      // Update the local state with the new data
+      setFlashDeals(prev => prev.map(deal => 
+        deal._id === dealId ? { ...deal, isActive: !currentStatus } : deal
+      ));
+      
+      // Show success message
+      alert(`Flash deal ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+    } catch (error) {
+      console.error("Error toggling flash deal status:", error);
+      alert("Failed to update flash deal status. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <style>{shimmerKeyframes}</style>
@@ -586,6 +612,7 @@ export default function FlashDealPage() {
                   <th scope="col" className="px-6 py-4">Discount</th>
                   <th scope="col" className="px-6 py-4">Duration</th>
                   <th scope="col" className="px-6 py-4">Quantity</th>
+                  <th scope="col" className="px-6 py-4">Status</th>
                   <th scope="col" className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -593,7 +620,9 @@ export default function FlashDealPage() {
                 {flashDeals.map((deal) => (
                   <tr
                     key={deal._id}
-                    className="border-b border-gray-200 dark:border-slate-700/50 hover:bg-gray-50 dark:hover:bg-slate-800/70"
+                    className={`border-b border-gray-200 dark:border-slate-700/50 hover:bg-gray-50 dark:hover:bg-slate-800/70 ${
+                      !deal.isActive ? 'opacity-60 bg-gray-50 dark:bg-slate-800/50' : ''
+                    }`}
                   >
                     <td className="px-6 py-4">
                       <div className="relative w-16 h-16 rounded-lg overflow-hidden">
@@ -642,6 +671,24 @@ export default function FlashDealPage() {
                       <span className="px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 rounded-full">
                         {deal.maxQuantity} available
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          label=""
+                          defaultChecked={deal.isActive}
+                          onChange={() => handleToggleActive(deal._id, deal.isActive)}
+                          disabled={isLoading}
+                          color="blue"
+                        />
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          deal.isActive 
+                            ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/40' 
+                            : 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/40'
+                        }`}>
+                          {deal.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -1126,6 +1173,16 @@ export default function FlashDealPage() {
                     <p className="text-sm text-gray-600 dark:text-gray-400">Maximum Quantity</p>
                     <p className="font-medium text-gray-900 dark:text-gray-200">
                       {currentFlashDeal.maxQuantity}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Status</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-200">
+                      {currentFlashDeal.isActive ? (
+                        <span className="text-green-600 dark:text-green-400">Active</span>
+                      ) : (
+                        <span className="text-red-600 dark:text-red-400">Inactive</span>
+                      )}
                     </p>
                   </div>
                 </div>
