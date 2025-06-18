@@ -601,8 +601,8 @@ export default function FlashDealPage() {
             </Button>
           </motion.div>
         ) : (
-          <div className="">
-            <table className="w-full text-sm text-left text-gray-600 dark:text-gray-400">
+          <div className="overflow-x-scroll">
+            <table className="w-full text-sm text-left text-gray-600 dark:text-gray-400 ">
               <thead className="text-xs uppercase bg-gray-50 dark:bg-slate-800/90 text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-slate-700/50">
                 <tr>
                   <th scope="col" className="px-6 py-4">Image</th>
@@ -708,7 +708,7 @@ export default function FlashDealPage() {
                               className="absolute right-0 mt-2 w-48 rounded-lg z-50 shadow-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 py-1"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <button
+                              {/* <button
                                 onClick={() => {
                                   handleEdit(deal);
                                   handleActionMenuToggle(null);
@@ -718,14 +718,14 @@ export default function FlashDealPage() {
                               >
                                 <PencilIcon className="w-6 h-6" />
                                 Edit
-                              </button>
+                              </button> */}
                               <button
                                 onClick={() => {
                                   handleDelete(deal._id);
                                   handleActionMenuToggle(null);
                                 }}
                                 disabled={isLoading || isTableLoading}
-                                className="w-full px-6 py-2 text-sm text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full px-6 py-2  text-sm text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <TrashBinIcon className="w-6 h-6" />
                                 Delete

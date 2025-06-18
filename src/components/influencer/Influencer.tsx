@@ -1323,7 +1323,7 @@ export default function InfluencerPage() {
             </Button>
           </motion.div>
         ) : (
-          <div className="">
+          <div className="overflow-x-auto">
             <table className="w-full text-sm text-left text-gray-600 dark:text-gray-400">
               <thead className="text-xs uppercase bg-gray-50 dark:bg-slate-800/90 text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-slate-700/50">
                 <tr>
@@ -1483,7 +1483,7 @@ export default function InfluencerPage() {
 
                           {openActionMenu === influencer._id && (
                             <div
-                              className="absolute right-0 mt-2 w-48 rounded-lg z-50 shadow-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 py-1 "
+                              className="absolute right-0 mt-2 w-48 rounded-lg z-50 shadow-lg dark:bg-slate-800 border border-gray-200 dark:border-slate-700 py-1 "
                               onClick={(e) => e.stopPropagation()}
                             >
                               <button
