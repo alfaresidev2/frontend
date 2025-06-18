@@ -177,7 +177,7 @@ export default function CollaborationPage() {
     const fetchInfluencers = async () => {
         try {
             const response = await api.get('/user/influencer-search', {
-                params: { hasService: true, hideDisabledUsers:true }
+                params: { hasService: true, hideDisabledUsers: true, serviceType: "individual" }
             });
             setInfluencers(response.data?.data?.docs || []);
         } catch (error) {
@@ -188,8 +188,8 @@ export default function CollaborationPage() {
 
     const fetchAllInfluencers = async () => {
         try {
-            const response = await api.get('/user/influencer-search',{
-                params: {limit:100,hideDisabledUsers:true}
+            const response = await api.get('/user/influencer-search', {
+                params: { limit: 100, hideDisabledUsers: true }
             });
             console.log(response)
             return response.data?.data?.docs || [];
@@ -419,7 +419,12 @@ export default function CollaborationPage() {
                     const uploadedUrl = await uploadMedia(croppedFile);
 
                     // Update form data and file preview with the S3 URL
-                    setFormData(prev => ({ ...prev, imageUrl: uploadedUrl }));
+                    setFormData(prev => ({
+                        ...prev, collaborationDetails: {
+                            ...prev.collaborationDetails,
+                            images: [uploadedUrl as string]
+                        }
+                    }));
                     setFilePreview(prev => prev ? { ...prev, url: uploadedUrl, file: croppedFile, signature: generateFileSignature(croppedFile) } : null);
 
                 } catch (error) {
@@ -467,18 +472,24 @@ export default function CollaborationPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.title.trim() || !selectedService || formData.users.length < 2) {
-            alert('Please select a service and at least two influencers for collaboration');
-            return;
-        }
+
         setIsLoading(true);
         try {
             if (editingCollaboration) {
+                const collaboration = {
+                    title: formData.title,
+                    description: formData.description,
+                    images: formData.collaborationDetails.images
+                };
                 // Update existing collaboration
-                await api.put(`/influencer-service/collaboration/${editingCollaboration._id}`, formData);
+                await api.put(`/influencer-service/${editingCollaboration._id}`, collaboration);
                 setFlag(!flag);
                 setEditingCollaboration(null);
             } else {
+                if (!formData.title.trim() || !selectedService || formData.users.length < 2) {
+                    alert('Please select a service and at least two influencers for collaboration');
+                    return;
+                }
                 // Add new collaboration
                 await api.post('/influencer-service/collaboration', formData);
                 setFlag(!flag);
@@ -540,31 +551,9 @@ export default function CollaborationPage() {
         console.log(collaboration)
         setEditingCollaboration(collaboration);
         setEditLoading(true);
-        
+
         try {
-            // Find the base influencer from the collaboration users
-            const baseInfluencer = collaboration.users.find(user => 
-                user.services && user.services.length > 0
-            ) || collaboration.users[0];
-            
-            // Fetch the influencer with services to ensure we have complete data
-            const influencerResponse = await api.get(`/user/${baseInfluencer._id}`);
-            const influencerWithServices = influencerResponse.data.data;
-            
-            // Find the service by matching properties
-            const service = influencerWithServices.services?.find((s: Service) => 
-                s.title === collaboration.title || 
-                s.price === collaboration.price ||
-                s.duration === collaboration.duration
-            );
-            
-            // Set the selected influencer and service
-            setSelectedInfluencer(influencerWithServices);
-            setSelectedService(service || null);
-            
-            console.log('Influencer with services:', influencerWithServices);
-            console.log('Found service:', service);
-            
+            // Set form data with only collaboration details (editable part)
             setFormData({
                 title: collaboration.title,
                 description: collaboration.description,
@@ -574,24 +563,30 @@ export default function CollaborationPage() {
                 duration: collaboration.duration,
                 type: collaboration.type,
                 users: collaboration.users.map(user => user._id),
-                collaborationDetails: collaboration.collaborationDetails
+                collaborationDetails: {
+                    title: collaboration.collaborationDetails?.title || "",
+                    images: collaboration.collaborationDetails?.images || [],
+                    description: collaboration.collaborationDetails?.description || ""
+                }
             });
-            
+
+            // Set image preview for existing images
             if (collaboration.imageUrl) {
                 // For existing images, create a preview without triggering the cropper
                 setFilePreview({
                     id: "existing-image",
-                    url: collaboration.imageUrl.startsWith('http') ? collaboration.imageUrl : `${S3_BASE_URL}/${collaboration.imageUrl}`,
+                    url: collaboration?.collaborationDetails?.images?.[0]?.startsWith('http') ? collaboration?.collaborationDetails.images[0] : `${S3_BASE_URL}/${collaboration.collaborationDetails?.images?.[0]}`,
                     file: new File([], collaboration.imageUrl.split("/").pop() || ""), // Dummy file for consistency
                     type: "image",
-                    signature: collaboration.imageUrl,
+                    signature: collaboration.collaborationDetails?.images?.[0],
                 });
             } else {
                 setFilePreview(null);
             }
+
             openModal();
         } catch (error) {
-            console.error('Error loading influencer data for editing:', error);
+            console.error('Error loading collaboration data for editing:', error);
             alert('Failed to load collaboration data for editing');
         } finally {
             setEditLoading(false);
@@ -641,7 +636,7 @@ export default function CollaborationPage() {
         closeModal();
     };
 
- 
+
 
     // Add navigation function
     const handleRowClick = (collaborationId: string) => {
@@ -719,7 +714,7 @@ export default function CollaborationPage() {
                                                         <div style={shimmerStyle} className="absolute inset-0 w-full h-full" />
                                                     )}
                                                     <Image
-                                                        src={collab.imageUrl}
+                                                        src={collab?.collaborationDetails?.images?.[0] || collab?.imageUrl}
                                                         alt={collab.title}
                                                         fill
                                                         className="object-cover"
@@ -731,10 +726,10 @@ export default function CollaborationPage() {
                                             )}
                                         </td>
                                         <td className="px-6 py-4 font-medium text-gray-900 dark:text-gray-200">
-                                            {collab?.title.slice(0, 15) + "..." || "-"}
+                                            {collab?.collaborationDetails?.title.slice(0, 15) + "..." || "-"}
                                         </td>
                                         <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                                            {collab?.description.slice(0, 50) + "..." || "-"}
+                                            {collab?.collaborationDetails?.description.slice(0, 50) + "..." || "-"}
                                         </td>
                                         <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
                                             ${collab?.price || 0}
@@ -830,59 +825,88 @@ export default function CollaborationPage() {
                             {editingCollaboration ? "Edit Collaboration" : "Add New Collaboration"}
                         </h4>
 
-                        {/* Step 1: Select Influencer with Service */}
-                        <div>
-                            <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
-                                Select Influencer with Service
-                            </label>
-                            <Select
-                                options={influencers.map(influencer => ({
-                                    value: influencer._id,
-                                    label: (
-                                        <div className="flex items-center gap-2">
-                                            {influencer.profileImage && (
-                                                <div className="relative w-6 h-6 rounded-full overflow-hidden">
-                                                    <Image
-                                                        src={influencer.profileImage.startsWith('http') ? influencer.profileImage : `${S3_BASE_URL}/${influencer.profileImage}`}
-                                                        alt={influencer.name}
-                                                        fill
-                                                        className="object-cover"
-                                                    />
-                                                </div>
-                                            )}
-                                            <span>{influencer.name}</span>
+                        {/* Show service information in read-only card when editing */}
+                        {editingCollaboration && (
+                            <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
+                                <h5 className="text-sm font-medium text-gray-900 dark:text-gray-200 mb-3">Service Information (Read Only)</h5>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Service Title</label>
+                                        <p className="text-sm text-gray-900 dark:text-gray-200">{formData.title}</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Service Description</label>
+                                        <p className="text-sm text-gray-900 dark:text-gray-200">{formData.description}</p>
+                                    </div>
+                                    <div className="flex gap-4">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Price</label>
+                                            <p className="text-sm text-green-600 dark:text-green-400">${formData.price}</p>
                                         </div>
-                                    ),
-                                }))}
-                                value={selectedInfluencer ? {
-                                    value: selectedInfluencer._id,
-                                    label: (
-                                        <div className="flex items-center gap-2">
-                                            {selectedInfluencer.profileImage && (
-                                                <div className="relative w-6 h-6 rounded-full overflow-hidden">
-                                                    <Image
-                                                        src={selectedInfluencer.profileImage.startsWith('http') ? selectedInfluencer.profileImage : `${S3_BASE_URL}/${selectedInfluencer.profileImage}`}
-                                                        alt={selectedInfluencer.name}
-                                                        fill
-                                                        className="object-cover"
-                                                    />
-                                                </div>
-                                            )}
-                                            <span>{selectedInfluencer.name}</span>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Duration</label>
+                                            <p className="text-sm text-gray-900 dark:text-gray-200">{formData.duration} min</p>
                                         </div>
-                                    ),
-                                } : null}
-                                onChange={(option) => handleInfluencerSelection(option ? influencers.find(inf => inf._id === option.value) || null : null)}
-                                className="react-select-container"
-                                classNamePrefix="react-select"
-                                placeholder="Select an influencer with services..."
-                                isDisabled={isLoading}
-                                maxMenuHeight={200}
-                            />
-                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
-                        {/* Step 2: Select Service */}
-                        {selectedInfluencer && (
+                        {/* Step 1: Select Influencer with Service - Only show when adding new */}
+                        {!editingCollaboration && (
+                            <div>
+                                <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
+                                    Select Influencer with Service
+                                </label>
+                                <Select
+                                    options={influencers.map(influencer => ({
+                                        value: influencer._id,
+                                        label: (
+                                            <div className="flex items-center gap-2">
+                                                {influencer.profileImage && (
+                                                    <div className="relative w-6 h-6 rounded-full overflow-hidden">
+                                                        <Image
+                                                            src={influencer.profileImage.startsWith('http') ? influencer.profileImage : `${S3_BASE_URL}/${influencer.profileImage}`}
+                                                            alt={influencer.name}
+                                                            fill
+                                                            className="object-cover"
+                                                        />
+                                                    </div>
+                                                )}
+                                                <span>{influencer.name}</span>
+                                            </div>
+                                        ),
+                                    }))}
+                                    value={selectedInfluencer ? {
+                                        value: selectedInfluencer._id,
+                                        label: (
+                                            <div className="flex items-center gap-2">
+                                                {selectedInfluencer.profileImage && (
+                                                    <div className="relative w-6 h-6 rounded-full overflow-hidden">
+                                                        <Image
+                                                            src={selectedInfluencer.profileImage.startsWith('http') ? selectedInfluencer.profileImage : `${S3_BASE_URL}/${selectedInfluencer.profileImage}`}
+                                                            alt={selectedInfluencer.name}
+                                                            fill
+                                                            className="object-cover"
+                                                        />
+                                                    </div>
+                                                )}
+                                                <span>{selectedInfluencer.name}</span>
+                                            </div>
+                                        ),
+                                    } : null}
+                                    onChange={(option) => handleInfluencerSelection(option ? influencers.find(inf => inf._id === option.value) || null : null)}
+                                    className="react-select-container"
+                                    classNamePrefix="react-select"
+                                    placeholder="Select an influencer with services..."
+                                    isDisabled={isLoading}
+                                    maxMenuHeight={200}
+                                />
+                            </div>
+                        )}
+
+                        {/* Step 2: Select Service - Only show when adding new */}
+                        {!editingCollaboration && selectedInfluencer && (
                             <div>
                                 <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
                                     Select Service
@@ -903,7 +927,7 @@ export default function CollaborationPage() {
                                                 className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedService?._id === service._id
                                                     ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
                                                     : "border-gray-200 dark:border-gray-700 hover:border-blue-500"
-                                                }`}
+                                                    }`}
                                             >
                                                 <div className="flex gap-4">
                                                     <div className="relative w-16 h-16 rounded-lg overflow-hidden">
@@ -940,8 +964,8 @@ export default function CollaborationPage() {
                             </div>
                         )}
 
-                        {/* Step 3: Select Additional Influencers for Collaboration */}
-                        {selectedInfluencer && (
+                        {/* Step 3: Select Additional Influencers for Collaboration - Only show when adding new */}
+                        {!editingCollaboration && selectedInfluencer && (
                             <div>
                                 <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
                                     Select Additional Influencers for Collaboration (At least 1 more)
@@ -999,8 +1023,8 @@ export default function CollaborationPage() {
                             </div>
                         )}
 
-                        {/* Collaboration Details */}
-                        {selectedService && (
+                        {/* Collaboration Details - Show when adding new (with selectedService) or when editing */}
+                        {(selectedService || editingCollaboration) && (
                             <>
                                 <div>
                                     <label htmlFor="collaborationDetails.title" className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-200">
