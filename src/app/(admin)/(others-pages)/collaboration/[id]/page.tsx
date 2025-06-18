@@ -263,6 +263,12 @@ export default function CollaborationDetailsPage() {
                 try {
                     setUploadLoading(true);
                     const uploadedUrl = await uploadMedia(croppedFile);
+                    setFormData(prev => ({
+                        ...prev, collaborationDetails: {
+                            ...prev.collaborationDetails,
+                            images: [uploadedUrl as string]
+                        }
+                    }));
 
                     setFilePreview(prev => prev ? { ...prev, url: uploadedUrl, file: croppedFile, signature: generateFileSignature(croppedFile) } : null);
 
@@ -314,13 +320,13 @@ export default function CollaborationDetailsPage() {
             }
         });
 
-        if (collaboration.imageUrl) {
+        if (collaboration.collaborationDetails.images.length) {
             setFilePreview({
                 id: "existing-image",
-                url: collaboration.imageUrl.startsWith('http') ? collaboration.imageUrl : `${S3_BASE_URL}/${collaboration.imageUrl}`,
-                file: new File([], collaboration.imageUrl.split("/").pop() || ""),
+                url: collaboration.collaborationDetails?.images?.[0].startsWith('http') ? collaboration.collaborationDetails?.images?.[0] : `${S3_BASE_URL}/${collaboration.collaborationDetails?.images?.[0]}`,
+                file: new File([], collaboration.collaborationDetails?.images?.[0].split("/").pop() || ""),
                 type: "image",
-                signature: collaboration.imageUrl,
+                signature: collaboration.collaborationDetails?.images?.[0]
             });
         } else {
             setFilePreview(null);
@@ -337,7 +343,6 @@ export default function CollaborationDetailsPage() {
         try {
             const updateData = {
                 collaborationDetails: formData.collaborationDetails,
-                imageUrl: filePreview?.url || collaboration.imageUrl
             };
 
             await api.put(`/influencer-service/${collaboration._id}`, updateData);
@@ -476,8 +481,8 @@ export default function CollaborationDetailsPage() {
                         {collaboration.imageUrl && (
                             <div className="relative w-[300px] h-[200px] rounded-lg overflow-hidden shadow-md border border-gray-200 dark:border-slate-700">
                                 <Image
-                                    src={collaboration.imageUrl}
-                                    alt={collaboration.collaborationDetails?.title || collaboration.title}
+                                    src={collaboration?.collaborationDetails?.images?.[0]}
+                                    alt={collaboration?.collaborationDetails?.title || collaboration.title}
                                     fill
                                     className="object-cover"
                                 />
