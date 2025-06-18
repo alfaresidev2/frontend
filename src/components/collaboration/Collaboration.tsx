@@ -477,9 +477,11 @@ export default function CollaborationPage() {
         try {
             if (editingCollaboration) {
                 const collaboration = {
-                    title: formData.title,
-                    description: formData.description,
-                    images: formData.collaborationDetails.images
+                    collaborationDetails: {
+                        title: formData.collaborationDetails.title,
+                        description: formData.collaborationDetails.description,
+                        images: formData.collaborationDetails.images
+                    }
                 };
                 // Update existing collaboration
                 await api.put(`/influencer-service/${editingCollaboration._id}`, collaboration);
@@ -726,10 +728,10 @@ export default function CollaborationPage() {
                                             )}
                                         </td>
                                         <td className="px-6 py-4 font-medium text-gray-900 dark:text-gray-200">
-                                            {collab?.collaborationDetails?.title.slice(0, 15) + "..." || "-"}
+                                            {collab?.collaborationDetails?.title.length < 30 ? collab?.collaborationDetails?.title.slice(0, 30) : collab?.collaborationDetails?.title.slice(0, 30) + "..." || "-"}
                                         </td>
                                         <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                                            {collab?.collaborationDetails?.description.slice(0, 50) + "..." || "-"}
+                                            {collab?.collaborationDetails?.description.length < 60 ? collab?.collaborationDetails?.description.slice(0, 60) : collab?.collaborationDetails?.description.slice(0, 50) + "..." || "-" }
                                         </td>
                                         <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
                                             ${collab?.price || 0}
